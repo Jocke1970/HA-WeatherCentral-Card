@@ -409,7 +409,7 @@ export class WeatherCentralCard extends HTMLElement {
     const labels = points.map((p, index) => {
       const show = index === 0 || index === points.length - 1 || index % 2 === 0;
       if (!show) return `<circle cx="${p.x}" cy="${p.y}" r="3.2" fill="var(--primary-color)"/>`;
-      return `<circle cx="${p.x}" cy="${p.y}" r="3.7" fill="var(--primary-color)"/>
+      return `<circle cx="${p.x}" cy="${p.y}" r="3.7" fill="var(--primary-color)"/>`
         + `<text x="${p.x}" y="${p.y - 9}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--primary-text-color)">${Math.round(p.value)}°</text>`
         + `<text x="${p.x}" y="${height - 12}" text-anchor="middle" font-size="9.5" fill="var(--secondary-text-color)">${esc(p.time)}</text>`;
     }).join("");
