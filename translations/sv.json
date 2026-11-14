@@ -127,5 +127,6 @@
   "editor_ozone": "Ozon",
   "editor_no2": "Kvävedioxid",
   "editor_pm25": "PM2.5",
-  "editor_pm10": "PM10"
+  "editor_pm10": "PM10",
+  "editor_dynamic_backgrounds": "Dynamisk bakgrund"
 }
