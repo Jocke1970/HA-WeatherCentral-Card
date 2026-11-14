@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026.11.0b2
+
+Visual polish after the first Home Assistant inspection.
+
+- Kept per-value freshness dots while suppressing repeated base-provider text in normal tiles.
+- Fallback and non-default sources remain explicitly labeled.
+- Balanced Wind & air to six tiles by adding humidity.
+- Replaced the Pressure development placeholder with a real next-12-hours pressure forecast curve.
+- Added diagnostics data coverage and clearer missing-value presentation.
+- Retained whole-series forecast fallback; no cross-provider hour splicing.
+
 ## 2026.11.0b1
 
 First visual beta candidate.
