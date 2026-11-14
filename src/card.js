@@ -10,7 +10,7 @@ import {
   getComparisonData,
 } from "./extras.js";
 
-const VERSION = "2026.11.0b5";
+const VERSION = "2026.11.0b6";
 
 const ICONS = {
   "clear-night": "mdi:weather-night",
@@ -43,7 +43,13 @@ const CSS = `
   .big{font-size:38px;font-weight:650;line-height:1}
   .secondary{font-size:12px;color:var(--secondary-text-color);margin-top:5px}
   .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .overview-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px}
   .tile{padding:11px;border-radius:12px;background:var(--secondary-background-color);min-width:0}
+  .overview-tile{padding:8px 6px;border-radius:10px;text-align:center}
+  .overview-tile .tile-head{justify-content:center;gap:5px;font-size:10px}
+  .overview-tile .tile-head ha-icon{--mdc-icon-size:17px}
+  .overview-tile .tile-value{font-size:16px;margin-top:3px}
+  .overview-tile .meta{justify-content:center;margin-top:4px}
   .tile-head{display:flex;align-items:center;gap:7px;color:var(--secondary-text-color);font-size:11px}
   .tile-head ha-icon{--mdc-icon-size:19px;color:var(--primary-color);flex:none}
   .tile-value{font-size:18px;font-weight:650;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -388,14 +394,17 @@ export class WeatherCentralCard extends HTMLElement {
     )} ${meta?.unit || ""}`.trim();
   }
 
-  _tile(param, reading, language) {
+  _tile(param, reading, language, compact = false) {
     const meta = PARAM_META[param] || {};
     const moreInfo = reading?.entityId
       ? ` data-more-info="${esc(reading.entityId)}"`
       : "";
+    const classes = compact
+      ? "tile overview-tile"
+      : "tile";
 
     return `
-      <div class="tile"${moreInfo}>
+      <div class="${classes}"${moreInfo}>
         <div class="tile-head">
           <ha-icon icon="${meta.icon || "mdi:information-outline"}"></ha-icon>
           <span>${esc(tr(language, param))}</span>
@@ -470,11 +479,11 @@ export class WeatherCentralCard extends HTMLElement {
         </div>
       </div>
 
-      <div class="grid">
-        ${this._tile("humidity", humidity, language)}
-        ${this._tile("cloud_coverage", clouds, language)}
-        ${this._tile("wind_speed", wind, language)}
-        ${this._tile("visibility", visibility, language)}
+      <div class="overview-grid">
+        ${this._tile("humidity", humidity, language, true)}
+        ${this._tile("cloud_coverage", clouds, language, true)}
+        ${this._tile("wind_speed", wind, language, true)}
+        ${this._tile("visibility", visibility, language, true)}
       </div>
     `;
   }
