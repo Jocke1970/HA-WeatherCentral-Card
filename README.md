@@ -1,0 +1,1 @@
+# HA-WeatherCentral-Card
