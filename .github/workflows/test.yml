@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - dev
+      - beta
+      - main
+  pull_request:
+    branches:
+      - dev
+      - beta
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Install build dependency
+        run: npm install --no-audit --no-fund
+      - name: Run tests
+        run: npm test
+      - name: Bundle card
+        run: npm run build
+      - name: Upload verified bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: weather-central-card
+          path: weather-central-card.js
+          if-no-files-found: error
+          retention-days: 7

@@ -1,0 +1,14 @@
+{
+  "name": "ha-weathercentral-card",
+  "private": true,
+  "version": "2026.11.0-beta.1",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "build": "node scripts/build.mjs",
+    "build:release": "node scripts/build.mjs --release"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}
