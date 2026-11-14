@@ -3,7 +3,7 @@ import { languageFor, tr } from "./i18n.js";
 import { WeatherValueResolver } from "./resolver.js";
 import { ForecastSeriesManager } from "./forecast.js";
 
-const VERSION = "2026.11.0b1";
+const VERSION = "2026.11.0b2";
 
 const ICONS = {
   "clear-night": "mdi:weather-night",
@@ -193,7 +193,7 @@ export class WeatherCentralCard extends HTMLElement {
 
   _updateForecastSubscriptions() {
     const view = this._config.view || "overview";
-    if (["temperature", "precipitation"].includes(view)) {
+    if (["temperature", "precipitation", "pressure"].includes(view)) {
       this._forecast.ensure("hourly");
     }
     if (view === "forecast") {
@@ -219,7 +219,7 @@ export class WeatherCentralCard extends HTMLElement {
     });
   }
 
-  _meta(reading, language) {
+  _meta(reading, language, compact = false) {
     if (
       !reading ||
       (!this._config.show_sources && !this._config.show_freshness)
@@ -238,9 +238,18 @@ export class WeatherCentralCard extends HTMLElement {
         ? '<span class="fallback">↳</span>'
         : "";
 
-    const source = this._config.show_sources
-      ? esc(reading.source)
-      : "";
+    const baseLabel = this._resolver?.baseProvider()?.label;
+    const hideRepeatedSource =
+      compact &&
+      reading.fallbackLevel === 0 &&
+      reading.source === baseLabel;
+
+    const source =
+      this._config.show_sources && !hideRepeatedSource
+        ? esc(reading.source)
+        : "";
+
+    if (!dot && !arrow && !source) return "";
 
     return `<div class="meta">${dot}${arrow}${source}</div>`;
   }
@@ -276,7 +285,7 @@ export class WeatherCentralCard extends HTMLElement {
         <div class="tile-value">${esc(
           this._formatReading(param, reading, language)
         )}</div>
-        ${this._meta(reading, language)}
+        ${this._meta(reading, language, true)}
       </div>
     `;
   }
@@ -339,7 +348,7 @@ export class WeatherCentralCard extends HTMLElement {
                 )}`
               : ""}
           </div>
-          ${this._meta(temperature, language)}
+          ${this._meta(temperature, language, true)}
         </div>
       </div>
 
@@ -467,6 +476,7 @@ export class WeatherCentralCard extends HTMLElement {
     const bearing = this._resolver.resolve("wind_bearing");
     const pressure = this._resolver.resolve("pressure");
     const visibility = this._resolver.resolve("visibility");
+    const humidity = this._resolver.resolve("humidity");
 
     return `
       <div class="section-title">
@@ -479,12 +489,83 @@ export class WeatherCentralCard extends HTMLElement {
         ${this._tile("wind_bearing", bearing, language)}
         ${this._tile("pressure", pressure, language)}
         ${this._tile("visibility", visibility, language)}
+        ${this._tile("humidity", humidity, language)}
       </div>
     `;
   }
 
   _pressure(language) {
     const pressure = this._resolver.resolve("pressure");
+    const series = this._hourlySeries();
+    const values = (series?.forecast || [])
+      .filter((entry) => Number.isFinite(entry.pressure));
+
+    let chart = "";
+
+    if (values.length >= 2) {
+      const width = 620;
+      const height = 150;
+      const left = 28;
+      const right = 28;
+      const top = 22;
+      const bottom = 34;
+      const pressures = values.map((entry) => entry.pressure);
+      const min = Math.min(...pressures);
+      const max = Math.max(...pressures);
+      const chartMin = min - 1;
+      const chartMax = max + 1;
+      const range = Math.max(2, chartMax - chartMin);
+      const plotWidth = width - left - right;
+      const plotHeight = height - top - bottom;
+
+      const points = values.map((entry, index) => {
+        const x =
+          left +
+          (index * plotWidth) /
+            Math.max(1, values.length - 1);
+        const y =
+          top +
+          ((chartMax - entry.pressure) / range) *
+            plotHeight;
+        const time = new Date(entry.datetime)
+          .toLocaleTimeString(
+            language === "sv" ? "sv-SE" : "en-GB",
+            { hour: "2-digit", minute: "2-digit" }
+          );
+
+        return { x, y, value: entry.pressure, time };
+      });
+
+      const polyline = points
+        .map((point) => `${point.x},${point.y}`)
+        .join(" ");
+
+      const labels = points
+        .map((point, index) => {
+          const show =
+            index === 0 ||
+            index === points.length - 1 ||
+            index % 3 === 0;
+
+          if (!show) {
+            return `<circle cx="${point.x}" cy="${point.y}" r="3" fill="var(--primary-color)"/>`;
+          }
+
+          return `<circle cx="${point.x}" cy="${point.y}" r="3.5" fill="var(--primary-color)"/>`
+            + `<text x="${point.x}" y="${point.y - 8}" text-anchor="middle" font-size="10" font-weight="600" fill="var(--primary-text-color)">${Math.round(point.value)}</text>`
+            + `<text x="${point.x}" y="${height - 10}" text-anchor="middle" font-size="9" fill="var(--secondary-text-color)">${esc(point.time)}</text>`;
+        })
+        .join("");
+
+      chart =
+        `<div class="forecast-sub">${esc(
+          tr(language, "next_12_hours")
+        )} · ${Math.round(min)}–${Math.round(max)} mbar</div>`
+        + `<svg class="temp-chart" viewBox="0 0 ${width} ${height}">`
+        + `<line x1="${left}" y1="${height-bottom}" x2="${width-right}" y2="${height-bottom}" stroke="var(--divider-color)" stroke-width="1"/>`
+        + `<polyline points="${polyline}" fill="none" stroke="var(--primary-color)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>${labels}</svg>`
+        + this._seriesMeta(series, language);
+    }
 
     return `
       <div class="section-title">
@@ -503,8 +584,10 @@ export class WeatherCentralCard extends HTMLElement {
             tr(language, "no_data")
           )}</div>`}
 
+      ${chart}
+
       <div class="footer">
-        <span>Forecast-series resolver follows in the next dev iteration</span>
+        <span></span>
         <span>${VERSION}</span>
       </div>
     `;
@@ -512,9 +595,30 @@ export class WeatherCentralCard extends HTMLElement {
 
   _diagnostics(language) {
     const provider = this._resolver.baseProvider();
+    const resolved = PARAMS.map((param) => ({
+      param,
+      reading: this._resolver.resolve(param),
+    }));
+    const available = resolved.filter(
+      (item) => item.reading
+    ).length;
 
-    const rows = PARAMS.map((param) => {
-      const reading = this._resolver.resolve(param);
+    const rows = resolved.map(({ param, reading }) => {
+      const value = reading
+        ? esc(
+            this._formatReading(
+              param,
+              reading,
+              language
+            )
+          )
+        : `<span style="color:var(--secondary-text-color)">${esc(
+            tr(language, "missing")
+          )}</span>`;
+
+      const provenance = reading
+        ? this._meta(reading, language)
+        : '<div class="meta"><span class="dot unknown"></span></div>';
 
       return `
         <div class="diag-row">
@@ -527,10 +631,8 @@ export class WeatherCentralCard extends HTMLElement {
             )}</div>
           </div>
           <div class="diag-value">
-            ${esc(
-              this._formatReading(param, reading, language)
-            )}
-            ${this._meta(reading, language)}
+            ${value}
+            ${provenance}
           </div>
         </div>
       `;
@@ -542,7 +644,8 @@ export class WeatherCentralCard extends HTMLElement {
         ${esc(tr(language, "view_diagnostics"))}
       </div>
       <div class="secondary" style="margin-bottom:8px">
-        Provider profile: <b>${esc(provider.label)}</b> · ${VERSION}
+        ${esc(tr(language, "data_coverage"))}: <b>${available}/${PARAMS.length}</b>
+        · ${esc(provider.label)} · ${VERSION}
       </div>
       <div class="diag">${rows}</div>
     `;
