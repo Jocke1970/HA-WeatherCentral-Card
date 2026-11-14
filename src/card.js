@@ -466,10 +466,21 @@ export class WeatherCentralCard extends HTMLElement {
       )}°`;
     }
 
+    let unit = meta?.unit || "";
+
+    if (
+      param === "precipitation" &&
+      /\/h|per.?hour/i.test(
+        String(reading.sourceUnit || "")
+      )
+    ) {
+      unit = "mm/h";
+    }
+
     return `${formatValue(
       reading.value,
       meta?.decimals ?? 1
-    )} ${meta?.unit || ""}`.trim();
+    )} ${unit}`.trim();
   }
 
   _derivedDewPoint(temperature, humidity) {
@@ -557,10 +568,24 @@ export class WeatherCentralCard extends HTMLElement {
   }
 
   _overviewSummary(language) {
-    const explicit =
-      this._config.summary_entity &&
+    const provider =
+      this._resolver.baseProvider();
+    const autoSummaryEntity =
+      provider.id === "pirateweather" &&
       this._hass?.states?.[
-        this._config.summary_entity
+        "sensor.pirateweather_daily_summary"
+      ]
+        ? "sensor.pirateweather_daily_summary"
+        : null;
+
+    const summaryEntity =
+      this._config.summary_entity ||
+      autoSummaryEntity;
+
+    const explicit =
+      summaryEntity &&
+      this._hass?.states?.[
+        summaryEntity
       ];
 
     if (
@@ -656,9 +681,18 @@ export class WeatherCentralCard extends HTMLElement {
       : "";
 
     const label =
-      param === "precipitation" &&
-      reading?.forecastFallback
-        ? tr(language, "precipitation_hour")
+      param === "precipitation"
+        ? (
+            reading?.forecastFallback
+              ? tr(
+                  language,
+                  "precipitation_hour"
+                )
+              : tr(
+                  language,
+                  "precipitation_now"
+                )
+          )
         : tr(language, param);
 
     return `
@@ -818,7 +852,12 @@ export class WeatherCentralCard extends HTMLElement {
       .join("");
 
     return `
-      <div class="overview-hero">
+      <div
+        class="overview-hero"
+        data-more-info="${esc(
+          this._config.weather_entity
+        )}"
+      >
         <ha-icon
           class="hero-icon"
           icon="${iconForCondition(condition)}"
