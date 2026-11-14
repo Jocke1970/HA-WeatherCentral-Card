@@ -128,5 +128,13 @@
   "editor_no2": "Kvävedioxid",
   "editor_pm25": "PM2.5",
   "editor_pm10": "PM10",
-  "editor_dynamic_backgrounds": "Dynamisk bakgrund"
+  "editor_dynamic_backgrounds": "Dynamisk bakgrund",
+  "calculated": "Beräknad",
+  "precipitation_hour": "Nederbörd 1 h",
+  "precipitation_now": "Regn nu",
+  "updated": "Uppdaterad",
+  "editor_overview": "Översikt",
+  "editor_overview_hint": "Välj vilka fyra detaljrutor som ska visas i standardkortet. Daggpunkt kan beräknas från temperatur och fukt om direkt källa saknas.",
+  "editor_overview_metric": "Detaljruta",
+  "editor_summary_entity": "Sammanfattning (valfri entity)"
 }
