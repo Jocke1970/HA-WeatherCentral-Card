@@ -10,7 +10,7 @@ import {
   getComparisonData,
 } from "./extras.js";
 
-const VERSION = "2026.11.0b4";
+const VERSION = "2026.11.0b5";
 
 const ICONS = {
   "clear-night": "mdi:weather-night",
@@ -127,6 +127,83 @@ function freshnessClass(reading) {
 function iconForCondition(condition) {
   return ICONS[condition] || "mdi:weather-partly-cloudy";
 }
+
+function tintBackground(tint, base = "var(--secondary-background-color)") {
+  return `linear-gradient(${tint}, ${tint}), ${base}`;
+}
+
+function uvVisual(value) {
+  if (!Number.isFinite(value)) {
+    return { color: "#78909c", tint: "rgba(120,144,156,0.08)" };
+  }
+  if (value < 3) return { color: "#43a047", tint: "rgba(67,160,71,0.10)" };
+  if (value < 6) return { color: "#f9a825", tint: "rgba(249,168,37,0.11)" };
+  if (value < 8) return { color: "#fb8c00", tint: "rgba(251,140,0,0.12)" };
+  if (value < 11) return { color: "#e53935", tint: "rgba(229,57,53,0.12)" };
+  return { color: "#8e24aa", tint: "rgba(142,36,170,0.13)" };
+}
+
+function auroraVisual(value) {
+  if (!Number.isFinite(value)) {
+    return { color: "#78909c", tint: "rgba(120,144,156,0.08)" };
+  }
+  if (value < 5) return { color: "#9575cd", tint: "rgba(149,117,205,0.08)" };
+  if (value < 20) return { color: "#7e57c2", tint: "rgba(126,87,194,0.10)" };
+  if (value < 40) return { color: "#5e35b1", tint: "rgba(94,53,177,0.12)" };
+  if (value < 70) return { color: "#00897b", tint: "rgba(0,137,123,0.12)" };
+  return { color: "#43a047", tint: "rgba(67,160,71,0.14)" };
+}
+
+function frostTint(level, known = true) {
+  if (!known) return "rgba(120,144,156,0.03)";
+  return [
+    "rgba(67,160,71,0.030)",
+    "rgba(3,155,229,0.045)",
+    "rgba(251,140,0,0.055)",
+    "rgba(229,57,53,0.060)",
+  ][Math.max(0, Math.min(3, Number(level) || 0))];
+}
+
+function fireTint(value, known = true) {
+  if (!known || !Number.isFinite(value)) return "rgba(120,144,156,0.03)";
+  if (value >= 30) return "rgba(198,40,40,0.060)";
+  if (value >= 20) return "rgba(229,57,53,0.055)";
+  if (value >= 10) return "rgba(251,140,0,0.050)";
+  if (value >= 5) return "rgba(249,168,37,0.045)";
+  return "rgba(67,160,71,0.030)";
+}
+
+function thunderTint(value, active, known = true) {
+  if (!known) return "rgba(120,144,156,0.03)";
+  if (!active) return "rgba(67,160,71,0.030)";
+  if (!Number.isFinite(value)) return "rgba(251,140,0,0.050)";
+  if (value >= 70) return "rgba(229,57,53,0.060)";
+  if (value >= 40) return "rgba(251,140,0,0.055)";
+  return "rgba(249,168,37,0.045)";
+}
+
+function alertTint(data) {
+  if (!data?.available) return "rgba(120,144,156,0.03)";
+  if (data.warnings > 0) {
+    const severity = String(data.severity || "").toUpperCase();
+    if (["RED", "RÖD"].includes(severity)) return "rgba(229,57,53,0.055)";
+    if (severity === "ORANGE") return "rgba(251,140,0,0.050)";
+    return "rgba(255,179,0,0.045)";
+  }
+  if (data.messagesCount > 0) return "rgba(120,144,156,0.035)";
+  return "rgba(67,160,71,0.025)";
+}
+
+function aqiTint(value) {
+  if (!Number.isFinite(value)) return "rgba(120,144,156,0.03)";
+  if (value <= 50) return "rgba(67,160,71,0.045)";
+  if (value <= 100) return "rgba(249,168,37,0.045)";
+  if (value <= 150) return "rgba(251,140,0,0.050)";
+  if (value <= 200) return "rgba(229,57,53,0.055)";
+  if (value <= 300) return "rgba(142,36,170,0.055)";
+  return "rgba(127,29,29,0.060)";
+}
+
 
 export class WeatherCentralCard extends HTMLElement {
   constructor() {
@@ -671,6 +748,8 @@ export class WeatherCentralCard extends HTMLElement {
               : tr(language, "uv_extreme");
 
     const aurora = data.aurora?.value;
+    const uvStyle = uvVisual(uv);
+    const auroraStyle = auroraVisual(aurora);
     const auroraLabel = !Number.isFinite(aurora)
       ? tr(language, "missing")
       : aurora < 5
@@ -704,31 +783,31 @@ export class WeatherCentralCard extends HTMLElement {
       </div>
 
       <div class="extra-grid">
-        <div class="extra-tile"${data.sun?.entityId ? ` data-more-info="${esc(data.sun.entityId)}"` : ""}>
+        <div class="extra-tile" style="background:${tintBackground(sunUp ? "rgba(249,168,37,0.08)" : "rgba(126,87,194,0.08)")}"${data.sun?.entityId ? ` data-more-info="${esc(data.sun.entityId)}"` : ""}>
           <div class="extra-title"><ha-icon icon="${sunUp ? "mdi:white-balance-sunny" : "mdi:weather-night"}"></ha-icon>${esc(tr(language, "sun"))}</div>
           <div class="extra-value">${esc(sunUp ? tr(language, "sun_up") : tr(language, "sun_down"))}</div>
           <div class="extra-sub">${esc(sunUp ? tr(language, "sunset") : tr(language, "sunrise"))}: ${esc(event)}${Number.isFinite(data.sun?.elevation) ? ` · ${data.sun.elevation.toFixed(1)}°` : ""}</div>
           ${this._extraMeta(data.sun, language)}
         </div>
 
-        <div class="extra-tile"${data.moon?.entityId ? ` data-more-info="${esc(data.moon.entityId)}"` : ""}>
+        <div class="extra-tile" style="background:${tintBackground("rgba(92,107,192,0.08)")}"${data.moon?.entityId ? ` data-more-info="${esc(data.moon.entityId)}"` : ""}>
           <div class="extra-title"><ha-icon icon="${moonInfo[0]}"></ha-icon>${esc(tr(language, "moon"))}</div>
           <div class="extra-value">${esc(tr(language, moonInfo[1]))}</div>
           <div class="extra-sub">${esc(tr(language, "moon_phase"))}</div>
           ${this._extraMeta(data.moon, language)}
         </div>
 
-        <div class="extra-tile"${data.uv?.entityId ? ` data-more-info="${esc(data.uv.entityId)}"` : ""}>
-          <div class="extra-title"><ha-icon icon="mdi:weather-sunny-alert"></ha-icon>UV-index</div>
+        <div class="extra-tile" style="background:${tintBackground(uvStyle.tint)}"${data.uv?.entityId ? ` data-more-info="${esc(data.uv.entityId)}"` : ""}>
+          <div class="extra-title"><ha-icon icon="mdi:weather-sunny-alert" style="color:${uvStyle.color}"></ha-icon>UV-index</div>
           <div class="extra-value">${Number.isFinite(uv) ? esc(formatValue(uv, 1)) : "–"}</div>
-          <div class="extra-sub">${esc(uvLabel)}</div>
+          <div class="extra-sub" style="color:${uvStyle.color};font-weight:600">${esc(uvLabel)}</div>
           ${this._extraMeta(data.uv, language)}
         </div>
 
-        <div class="extra-tile"${data.aurora?.entityId ? ` data-more-info="${esc(data.aurora.entityId)}"` : ""}>
-          <div class="extra-title"><ha-icon icon="mdi:aurora"></ha-icon>${esc(tr(language, "aurora"))}</div>
+        <div class="extra-tile" style="background:${tintBackground(auroraStyle.tint)}"${data.aurora?.entityId ? ` data-more-info="${esc(data.aurora.entityId)}"` : ""}>
+          <div class="extra-title"><ha-icon icon="mdi:aurora" style="color:${auroraStyle.color}"></ha-icon>${esc(tr(language, "aurora"))}</div>
           <div class="extra-value">${Number.isFinite(aurora) ? `${Math.round(aurora)} %` : "–"}</div>
-          <div class="extra-sub">${esc(auroraLabel)}</div>
+          <div class="extra-sub" style="color:${auroraStyle.color};font-weight:600">${esc(auroraLabel)}</div>
           ${this._extraMeta(data.aurora, language)}
         </div>
       </div>
@@ -778,7 +857,7 @@ export class WeatherCentralCard extends HTMLElement {
         ${esc(tr(language, "view_risks"))}
       </div>
       <div class="risk-grid">
-        <div class="risk-card"${data.frost.entityId ? ` data-more-info="${esc(data.frost.entityId)}"` : ""}>
+        <div class="risk-card" style="background:${tintBackground(frostTint(data.frost.level, frostKnown))}"${data.frost.entityId ? ` data-more-info="${esc(data.frost.entityId)}"` : ""}>
           <ha-icon class="risk-icon" icon="${frostInfo[0]}"></ha-icon>
           <div class="risk-name">${esc(tr(language, "frost_ice"))}</div>
           <div class="risk-state">${esc(frostText)}</div>
@@ -786,7 +865,7 @@ export class WeatherCentralCard extends HTMLElement {
           ${this._extraMeta(data.frost, language)}
         </div>
 
-        <div class="risk-card"${data.thunder.entityId ? ` data-more-info="${esc(data.thunder.entityId)}"` : ""}>
+        <div class="risk-card" style="background:${tintBackground(thunderTint(data.thunder.value, data.thunder.active, thunderKnown))}"${data.thunder.entityId ? ` data-more-info="${esc(data.thunder.entityId)}"` : ""}>
           <ha-icon class="risk-icon" icon="mdi:weather-lightning"></ha-icon>
           <div class="risk-name">${esc(tr(language, "thunder"))}</div>
           <div class="risk-state">${esc(thunderText)}</div>
@@ -794,7 +873,7 @@ export class WeatherCentralCard extends HTMLElement {
           ${this._extraMeta(data.thunder, language)}
         </div>
 
-        <div class="risk-card"${data.fire.entityId ? ` data-more-info="${esc(data.fire.entityId)}"` : ""}>
+        <div class="risk-card" style="background:${tintBackground(fireTint(data.fire.index, fireKnown))}"${data.fire.entityId ? ` data-more-info="${esc(data.fire.entityId)}"` : ""}>
           <ha-icon class="risk-icon" icon="mdi:fire-alert"></ha-icon>
           <div class="risk-name">${esc(tr(language, "fire_risk"))}</div>
           <div class="risk-state">${esc(fireText)}</div>
@@ -899,6 +978,7 @@ export class WeatherCentralCard extends HTMLElement {
         `;
 
     return `
+      <div class="module-tint" style="background:${tintBackground(alertTint(data), "transparent")};border-radius:12px;padding:2px">
       <div class="section-title">
         <ha-icon icon="mdi:hazard-lights"></ha-icon>
         ${esc(tr(language, "view_alerts"))}
@@ -912,6 +992,7 @@ export class WeatherCentralCard extends HTMLElement {
         ${cards || empty}
       </div>
       ${this._extraMeta(data, language)}
+      </div>
     `;
   }
 
@@ -960,6 +1041,7 @@ export class WeatherCentralCard extends HTMLElement {
     `;
 
     return `
+      <div class="module-tint" style="background:${tintBackground(aqiTint(aqi), "transparent")};border-radius:12px;padding:2px">
       <div class="section-title">
         <ha-icon icon="mdi:air-filter"></ha-icon>
         ${esc(tr(language, "view_air_quality"))}
@@ -981,7 +1063,9 @@ export class WeatherCentralCard extends HTMLElement {
         ${pollutant("PM2.5", data.pm25)}
         ${pollutant("PM10", data.pm10)}
       </div>
+      ${data.station ? `<div class="extra-sub" style="margin-top:8px">${esc(data.station)}</div>` : ""}
       ${this._extraMeta(data, language)}
+      </div>
     `;
   }
 
