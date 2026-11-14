@@ -92,6 +92,11 @@ export function normalize(param, value, unit) {
     return n;
   }
 
+  if (param === "precipitation") {
+    if (["in", "inch", "inches"].includes(u)) return n * 25.4;
+    return n;
+  }
+
   return n;
 }
 
