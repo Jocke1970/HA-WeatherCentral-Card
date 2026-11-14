@@ -176,3 +176,64 @@ test("comparison discovers known providers without calculating consensus itself"
   assert.equal(data.consensus.temperature.value, 4.8);
   assert.equal(data.consensus.wind.value, 1.9);
 });
+
+
+test("comparison prefers Weather Comparison v2 sensor metadata when available", () => {
+  const hass = {
+    states: {
+      "weather.smhi_local": weather({
+        temperature: 99,
+        wind_speed: 99,
+      }),
+      "sensor.vaderjamforelse_v2_smhi_local_temperatur": state(5.1, {
+        friendly_name: "Väderjämförelse v2 SMHI Local temperatur",
+        source: "SMHI Local",
+        model_family: "SMHI snow1g",
+        implementation: "SMHI Local",
+        parameter: "temperature",
+        sampled_at: now,
+      }),
+      "sensor.vaderjamforelse_v2_smhi_local_vind": state(2.4, {
+        friendly_name: "Väderjämförelse v2 SMHI Local vind",
+        source: "SMHI Local",
+        model_family: "SMHI snow1g",
+        implementation: "SMHI Local",
+        parameter: "wind_speed",
+        sampled_at: now,
+      }),
+      "sensor.vaderjamforelse_v2_met_temperatur": state(5.5, {
+        friendly_name: "Väderjämförelse v2 MET temperatur",
+        source: "MET Norway",
+        parameter: "temperature",
+        sampled_at: now,
+      }),
+      "sensor.vaderjamforelse_v2_met_vind": state(2.7, {
+        friendly_name: "Väderjämförelse v2 MET vind",
+        source: "MET Norway",
+        parameter: "wind_speed",
+        sampled_at: now,
+      }),
+    },
+  };
+
+  const data = getComparisonData(hass, {
+    weather_entity: "weather.smhi_local",
+  });
+
+  assert.equal(data.providers.length, 2);
+
+  const local = data.providers.find(
+    (provider) => provider.source === "SMHI Local"
+  );
+  const met = data.providers.find(
+    (provider) => provider.source === "MET Norway"
+  );
+
+  assert.equal(local.values.temperature, 5.1);
+  assert.equal(local.values.wind_speed, 2.4);
+  assert.equal(local.modelFamily, "SMHI snow1g");
+  assert.equal(local.implementation, "SMHI Local");
+  assert.equal(met.values.temperature, 5.5);
+  assert.equal(met.values.wind_speed, 2.7);
+});
+

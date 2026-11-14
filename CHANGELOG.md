@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026.11.0b5
+
+Expanded visual intelligence and comparison data.
+
+- Restored sensor-driven dynamic backgrounds inspired by the original Weather Central dashboard.
+- Added value-based tinting for Sun/Moon, UV, aurora, frost/ice, thunder, fire risk, SMHI alerts and AQI.
+- Added a visual-editor toggle for dynamic backgrounds; enabled by default.
+- Comparison view now prefers Weather Comparison v2 metadata sensors when available.
+- Weather Comparison v2 source/model/implementation metadata is shown in the comparison table.
+- Comparison discovery now supplements metadata sources with missing weather providers instead of choosing one source system exclusively.
+- Air-quality view shows the detected station label.
+- Added regression coverage for Weather Comparison v2 metadata discovery.
+
 ## 2026.11.0b4
 
 Sections-layout sizing fix.
