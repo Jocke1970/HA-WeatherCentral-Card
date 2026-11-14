@@ -3,7 +3,7 @@ import { languageFor, tr } from "./i18n.js";
 import { WeatherValueResolver } from "./resolver.js";
 import { ForecastSeriesManager } from "./forecast.js";
 
-const VERSION = "2026.11.0-dev.1";
+const VERSION = "2026.11.0b1";
 
 const ICONS = {
   "clear-night": "mdi:weather-night",
