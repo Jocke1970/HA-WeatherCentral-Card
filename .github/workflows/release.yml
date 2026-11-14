@@ -1,0 +1,86 @@
+name: Publish release
+
+on:
+  push:
+    branches:
+      - beta
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Read card version
+        id: version
+        shell: bash
+        run: |
+          VERSION="$(node -e 'const fs=require("fs"); const s=fs.readFileSync("src/index.js","utf8"); const m=s.match(/const VERSION = "([^"]+)"/); if(!m) process.exit(1); process.stdout.write(m[1]);')"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Skip existing release
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          if gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install build dependency
+        if: steps.existing.outputs.exists != 'true'
+        run: npm install --no-audit --no-fund
+
+      - name: Run tests
+        if: steps.existing.outputs.exists != 'true'
+        run: npm test
+
+      - name: Build release bundle
+        if: steps.existing.outputs.exists != 'true'
+        run: npm run build:release
+
+      - name: Extract release notes
+        if: steps.existing.outputs.exists != 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          awk -v version="$VERSION" '
+            $0 == "## " version { found=1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+
+          if [ ! -s release-notes.md ]; then
+            printf 'Weather Central Card %s\n' "$VERSION" > release-notes.md
+          fi
+
+      - name: Publish GitHub release
+        if: steps.existing.outputs.exists != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          EXTRA=()
+          if [[ "$VERSION" =~ b[0-9]+$ ]]; then
+            EXTRA+=(--prerelease)
+          fi
+
+          gh release create "$VERSION" weather-central-card.js             --repo "$GITHUB_REPOSITORY"             --target "$GITHUB_SHA"             --title "$VERSION"             --notes-file release-notes.md             "${EXTRA[@]}"
