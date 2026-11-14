@@ -19,6 +19,15 @@ export const PROVIDERS = [
     forecastFreshness: { greenMinutes: 180, yellowMinutes: 360 },
   },
   {
+    id: "smhi_core",
+    label: "SMHI Core",
+    matchWeather: (id) =>
+      id === "weather.smhi" ||
+      /weather\.smhi($|_)/i.test(String(id || "")),
+    entities: {},
+    freshness: { greenMinutes: 45, yellowMinutes: 150 },
+  },
+  {
     id: "pirateweather",
     label: "Pirate Weather",
     matchWeather: (id) =>
