@@ -322,6 +322,11 @@ export function deriveFrostRisk(
   );
 
   return {
+    available: entries
+      .slice(0, 12)
+      .some((entry) =>
+        Number.isFinite(Number(entry.temperature))
+      ),
     level: maxLevel,
     first,
     minTemp,
@@ -350,10 +355,21 @@ export function getRiskData(
   );
 
   const frost = deriveFrostRisk(hourlyForecast);
+  const frostState =
+    frostEntity
+      ? hass.states[frostEntity]
+      : null;
+  const frostEntityAvailable =
+    validState(frostState);
 
-  if (
-    frostEntity &&
-    hass.states[frostEntity]?.state === "on" &&
+  if (!frost.available && frostEntityAvailable) {
+    frost.available = true;
+    frost.level =
+      frostState.state === "on" ? 1 : 0;
+  } else if (
+    frost.available &&
+    frostEntityAvailable &&
+    frostState.state === "on" &&
     frost.level === 0
   ) {
     frost.level = 1;
@@ -372,24 +388,38 @@ export function getRiskData(
       ? Number(fireState.attributes.max_index_12h)
       : readNumber(hass, fireEntity);
 
+  const fireAvailable =
+    validState(fireState) ||
+    Number.isFinite(fireIndex);
+
   const fireActive =
-    fireState?.state === "on" ||
+    fireAvailable &&
     (
-      Number.isFinite(fireIndex) &&
-      fireIndex >= 10
+      fireState?.state === "on" ||
+      (
+        Number.isFinite(fireIndex) &&
+        fireIndex >= 10
+      )
     );
 
   let thunderValue =
     readNumber(hass, thunderEntity);
 
-  const forecastThunder =
+  const forecastEntries =
     (hourlyForecast?.forecast || [])
-      .slice(0, 12)
-      .some((entry) =>
-        ["lightning", "lightning-rainy"].includes(
-          entry.condition
-        )
-      );
+      .slice(0, 12);
+
+  const forecastThunderAvailable =
+    forecastEntries.some(
+      (entry) => Boolean(entry.condition)
+    );
+
+  const forecastThunder =
+    forecastEntries.some((entry) =>
+      ["lightning", "lightning-rainy"].includes(
+        entry.condition
+      )
+    );
 
   if (
     !Number.isFinite(thunderValue) &&
@@ -398,32 +428,43 @@ export function getRiskData(
     thunderValue = 100;
   }
 
+  const thunderAvailable =
+    Number.isFinite(thunderValue) ||
+    forecastThunderAvailable;
+
   return {
     frost: {
       ...frost,
       entityId: frostEntity,
       source:
-        frostEntity
-          ? extraSourceLabel(
-              hass,
-              config,
-              "frost_risk_entity"
-            )
-          : hourlyForecast?.source || "",
+        frost.available &&
+        hourlyForecast?.forecast?.length
+          ? hourlyForecast.source || ""
+          : frostEntityAvailable
+            ? extraSourceLabel(
+                hass,
+                config,
+                "frost_risk_entity"
+              )
+            : "",
       freshness:
-        frostEntity
-          ? entityFreshness(
-              hass,
-              frostEntity,
-              45,
-              180
-            )
-          : hourlyForecast?.freshness || {
+        frost.available &&
+        hourlyForecast?.forecast?.length
+          ? hourlyForecast.freshness || {
               status: "unknown",
-            },
+            }
+          : frostEntityAvailable
+            ? entityFreshness(
+                hass,
+                frostEntity,
+                45,
+                180
+              )
+            : { status: "unknown" },
     },
     fire: {
       entityId: fireEntity,
+      available: fireAvailable,
       active: fireActive,
       index:
         Number.isFinite(fireIndex)
@@ -447,6 +488,7 @@ export function getRiskData(
     },
     thunder: {
       entityId: thunderEntity,
+      available: thunderAvailable,
       value:
         Number.isFinite(thunderValue)
           ? thunderValue
@@ -502,7 +544,12 @@ export function getAlertsData(
     ? alerts.attributes.messages
     : [];
 
+  const available =
+    validState(status) ||
+    validState(alerts);
+
   return {
+    available,
     statusEntity,
     alertsEntity,
     warnings:
