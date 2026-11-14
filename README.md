@@ -2,7 +2,7 @@
 
 A provider-aware Home Assistant Lovelace weather card with multiple views, visual editing, per-parameter fallbacks, source provenance and freshness indicators.
 
-> **Beta candidate:** `2026.11.0b1` is being prepared on `dev`. Stable `main` is intentionally untouched.
+> **Current beta:** `2026.11.0b1` is available on the `beta` branch for visual Home Assistant testing. Stable `main` is intentionally untouched.
 
 ## Core idea
 
@@ -59,9 +59,9 @@ Each resolved value keeps its actual source and freshness:
 
 SMHI Local forecast freshness uses forecast metadata rather than treating a recently re-reported cached value as a fresh model run.
 
-## Development status
+## Beta status
 
-The first beta intentionally focuses on the core weather/provider architecture and visual inspection in real Home Assistant.
+`2026.11.0b1` intentionally focuses on the core weather/provider architecture and visual inspection in real Home Assistant.
 
 Planned later beta views include Sky, Risks, Alerts, Air quality and Provider comparison. Pressure forecast trend also remains to be added.
 
