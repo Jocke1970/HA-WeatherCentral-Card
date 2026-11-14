@@ -748,15 +748,13 @@ export class WeatherCentralCard extends HTMLElement {
     const frostInfo =
       frostLabels[data.frost.level] || frostLabels[0];
 
-    const fireKnown =
-      Boolean(data.fire.entityId) ||
-      Number.isFinite(data.fire.index);
-    const thunderKnown =
-      Boolean(data.thunder.entityId) ||
-      Number.isFinite(data.thunder.value) ||
-      (hourly?.forecast || []).some((entry) =>
-        ["lightning", "lightning-rainy"].includes(entry.condition)
-      );
+    const frostKnown = data.frost.available === true;
+    const fireKnown = data.fire.available === true;
+    const thunderKnown = data.thunder.available === true;
+
+    const frostText = !frostKnown
+      ? tr(language, "missing")
+      : tr(language, frostInfo[1]);
 
     const fireText = !fireKnown
       ? tr(language, "missing")
@@ -779,7 +777,7 @@ export class WeatherCentralCard extends HTMLElement {
         <div class="risk-card"${data.frost.entityId ? ` data-more-info="${esc(data.frost.entityId)}"` : ""}>
           <ha-icon class="risk-icon" icon="${frostInfo[0]}"></ha-icon>
           <div class="risk-name">${esc(tr(language, "frost_ice"))}</div>
-          <div class="risk-state">${esc(tr(language, frostInfo[1]))}</div>
+          <div class="risk-state">${esc(frostText)}</div>
           <div class="extra-sub">${Number.isFinite(data.frost.minTemp) ? `${esc(tr(language, "minimum"))}: ${formatValue(data.frost.minTemp, 1)} °C` : ""}</div>
           ${this._extraMeta(data.frost, language)}
         </div>
@@ -882,12 +880,19 @@ export class WeatherCentralCard extends HTMLElement {
       })
       .join("");
 
-    const empty = `
-      <div class="alert-item" style="border-left-color:var(--success-color,#43a047)">
-        <ha-icon icon="mdi:check-circle-outline" style="color:var(--success-color,#43a047)"></ha-icon>
-        <div><div class="alert-title">${esc(tr(language, "no_active_alerts"))}</div></div>
-      </div>
-    `;
+    const empty = data.available
+      ? `
+          <div class="alert-item" style="border-left-color:var(--success-color,#43a047)">
+            <ha-icon icon="mdi:check-circle-outline" style="color:var(--success-color,#43a047)"></ha-icon>
+            <div><div class="alert-title">${esc(tr(language, "no_active_alerts"))}</div></div>
+          </div>
+        `
+      : `
+          <div class="alert-item">
+            <ha-icon icon="mdi:help-circle-outline"></ha-icon>
+            <div><div class="alert-title">${esc(tr(language, "missing"))}</div></div>
+          </div>
+        `;
 
     return `
       <div class="section-title">
