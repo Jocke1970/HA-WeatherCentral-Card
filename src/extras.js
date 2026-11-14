@@ -604,8 +604,20 @@ export function getAirQualityData(
     )
   );
 
+  const station =
+    entities.aqi
+      ? String(
+          hass?.states?.[entities.aqi]?.attributes
+            ?.friendly_name || ""
+        )
+          .replace(/luftkvalitetsindex/ig, "")
+          .replace(/s+/g, " ")
+          .trim()
+      : "";
+
   return {
     entities,
+    station,
     aqi: readNumber(hass, entities.aqi),
     dominant: readText(
       hass,
@@ -631,6 +643,125 @@ export function getAirQualityData(
         )
       : { status: "unknown" },
   };
+}
+
+function comparisonParamKey(raw) {
+  const value = String(raw || "").toLowerCase();
+  const map = {
+    temperature: "temperature",
+    humidity: "humidity",
+    wind_speed: "wind_speed",
+    wind_gust_speed: "wind_gust",
+    wind_gust: "wind_gust",
+    pressure: "pressure",
+    cloud_coverage: "cloud_coverage",
+  };
+  return map[value] || null;
+}
+
+function comparisonSensorGroups(hass) {
+  const groups = new Map();
+
+  for (const [entityId, stateObj] of Object.entries(
+    hass?.states || {}
+  )) {
+    if (!entityId.startsWith("sensor.")) continue;
+
+    const attrs = stateObj?.attributes || {};
+    const source = attrs.source;
+    const param = comparisonParamKey(attrs.parameter);
+
+    if (!source || !param) continue;
+
+    const friendly = String(
+      attrs.friendly_name || ""
+    ).toLowerCase();
+
+    const looksLikeComparison =
+      friendly.includes("väderjämförelse v2") ||
+      friendly.includes("vaderjamforelse v2") ||
+      String(attrs.implementation || "").length > 0 ||
+      String(attrs.model_family || "").length > 0;
+
+    if (!looksLikeComparison) continue;
+
+    const value = Number(stateObj.state);
+    if (!Number.isFinite(value)) continue;
+
+    const key = String(source);
+
+    if (!groups.has(key)) {
+      groups.set(key, {
+        source: key,
+        sourceId: key
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "_")
+          .replace(/^_|_$/g, ""),
+        modelFamily:
+          attrs.model_family || null,
+        implementation:
+          attrs.implementation || null,
+        entities: {},
+        values: {},
+        freshness: {
+          status: "unknown",
+          ageMinutes: null,
+        },
+      });
+    }
+
+    const group = groups.get(key);
+    group.entities[param] = entityId;
+    group.values[param] = value;
+
+    const sampledAt =
+      attrs.sampled_at ||
+      attrs.source_last_updated ||
+      stateObj.last_reported ||
+      stateObj.last_updated ||
+      stateObj.last_changed;
+
+    const ts = Date.parse(sampledAt || "");
+    if (Number.isFinite(ts)) {
+      const ageMinutes = Math.max(
+        0,
+        (Date.now() - ts) / 60000
+      );
+
+      const status =
+        ageMinutes <= 30
+          ? "fresh"
+          : ageMinutes <= 120
+            ? "aging"
+            : "stale";
+
+      const rank = {
+        unknown: 0,
+        fresh: 1,
+        aging: 2,
+        stale: 3,
+      };
+
+      if (
+        rank[status] >
+        rank[group.freshness.status]
+      ) {
+        group.freshness = {
+          status,
+          ageMinutes,
+        };
+      } else if (
+        group.freshness.ageMinutes === null ||
+        ageMinutes >
+          group.freshness.ageMinutes
+      ) {
+        group.freshness.ageMinutes =
+          ageMinutes;
+      }
+    }
+  }
+
+  return [...groups.values()];
 }
 
 function weatherReading(
@@ -741,41 +872,70 @@ export function getComparisonData(
     "cloud_coverage",
   ];
 
-  const providers =
-    comparisonWeatherEntities(
-      hass,
-      config
-    ).map((entityId) => {
-      const provider =
-        providerForWeather(entityId) || {
-          id: "generic",
-          label:
-            hass.states[entityId]?.attributes
-              ?.friendly_name || entityId,
-        };
+  const metadataProviders =
+    comparisonSensorGroups(hass);
 
-      return {
-        entityId,
-        source: provider.label,
-        sourceId: provider.id,
-        freshness: entityFreshness(
-          hass,
-          entityId,
-          60,
-          240
-        ),
+  const providers = metadataProviders.length
+    ? metadataProviders.map((group) => ({
+        entityId:
+          group.entities.temperature ||
+          group.entities.wind_speed ||
+          Object.values(group.entities)[0] ||
+          null,
+        source: group.source,
+        sourceId: group.sourceId,
+        modelFamily: group.modelFamily,
+        implementation: group.implementation,
+        freshness: group.freshness,
         values: Object.fromEntries(
           params.map((param) => [
             param,
-            weatherReading(
-              hass,
-              entityId,
-              param
-            ),
+            Number.isFinite(group.values[param])
+              ? group.values[param]
+              : null,
           ])
         ),
-      };
-    });
+      }))
+    : comparisonWeatherEntities(
+        hass,
+        config
+      ).map((entityId) => {
+        const provider =
+          providerForWeather(entityId) || {
+            id: "generic",
+            label:
+              hass.states[entityId]?.attributes
+                ?.friendly_name || entityId,
+          };
+
+        return {
+          entityId,
+          source: provider.label,
+          sourceId: provider.id,
+          modelFamily:
+            provider.id === "smhi_local" ||
+            provider.id === "smhi_core"
+              ? "SMHI snow1g"
+              : null,
+          implementation: null,
+          freshness: entityFreshness(
+            hass,
+            entityId,
+            60,
+            240
+          ),
+          values: Object.fromEntries(
+            params.map((param) => [
+              param,
+              weatherReading(
+                hass,
+                entityId,
+                param
+              ),
+            ])
+          ),
+        };
+      });
 
   const tempConsensus =
     findConsensusEntity(
