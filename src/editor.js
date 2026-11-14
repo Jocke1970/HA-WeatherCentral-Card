@@ -88,6 +88,7 @@ export class WeatherCentralCardEditor extends HTMLElement {
       show_sources: true,
       show_freshness: true,
       use_fallbacks: true,
+      dynamic_backgrounds: true,
       ...(config || {}),
     };
 
@@ -169,7 +170,7 @@ export class WeatherCentralCardEditor extends HTMLElement {
     }
 
     if (
-      ["show_sources", "show_freshness", "use_fallbacks"].includes(field)
+      ["show_sources", "show_freshness", "use_fallbacks", "dynamic_backgrounds"].includes(field)
     ) {
       this._setField(field, Boolean(element.checked));
       return;
@@ -360,6 +361,15 @@ export class WeatherCentralCardEditor extends HTMLElement {
             data-field="use_fallbacks"
             type="checkbox"
             ${config.use_fallbacks !== false ? "checked" : ""}
+          >
+        </div>
+
+        <div class="toggle">
+          <span>${tr(language, "editor_dynamic_backgrounds")}</span>
+          <input
+            data-field="dynamic_backgrounds"
+            type="checkbox"
+            ${config.dynamic_backgrounds !== false ? "checked" : ""}
           >
         </div>
 
