@@ -57,7 +57,23 @@ const CSS = `
   .diag-value{text-align:right;font-size:12px;white-space:nowrap}
   .empty{padding:22px 8px;text-align:center;color:var(--secondary-text-color)}
   .footer{margin-top:12px;padding-top:10px;border-top:1px solid var(--divider-color);display:flex;justify-content:space-between;gap:10px;font-size:9.5px;color:var(--secondary-text-color)}
-  .forecast-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}\n  .forecast-sub{font-size:11px;color:var(--secondary-text-color)}\n  .hours{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}\n  .hour{padding:8px 3px;border-radius:10px;background:var(--secondary-background-color);text-align:center;min-width:0}\n  .hour-time{font-size:10px;color:var(--secondary-text-color)}\n  .hour-main{font-size:15px;font-weight:650;margin-top:4px;white-space:nowrap}\n  .hour-sub{font-size:9.5px;color:var(--secondary-text-color);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n  .forecast-days{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}\n  .day{padding:10px 5px;border-radius:12px;background:var(--secondary-background-color);text-align:center;min-width:0}\n  .day ha-icon{--mdc-icon-size:29px;color:var(--primary-color);margin:7px 0 3px}\n  .day-name{font-size:12px;font-weight:650}\n  .day-date{font-size:9.5px;color:var(--secondary-text-color);margin-top:1px}\n  .day-temp{font-size:16px;font-weight:650;margin-top:5px}\n  .day-low{font-size:12px;color:var(--secondary-text-color);font-weight:400;margin-left:3px}\n  .series-meta{display:flex;align-items:center;justify-content:flex-end;gap:5px;font-size:9.5px;color:var(--secondary-text-color);margin-top:9px}\n  .temp-chart{width:100%;height:auto;display:block;overflow:visible;margin-top:4px}\n  @media(max-width:420px){ha-card{padding:13px}.big{font-size:34px}.hero-icon{--mdc-icon-size:46px}}
+  .forecast-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+  .forecast-sub{font-size:11px;color:var(--secondary-text-color)}
+  .hours{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+  .hour{padding:8px 3px;border-radius:10px;background:var(--secondary-background-color);text-align:center;min-width:0}
+  .hour-time{font-size:10px;color:var(--secondary-text-color)}
+  .hour-main{font-size:15px;font-weight:650;margin-top:4px;white-space:nowrap}
+  .hour-sub{font-size:9.5px;color:var(--secondary-text-color);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .forecast-days{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+  .day{padding:10px 5px;border-radius:12px;background:var(--secondary-background-color);text-align:center;min-width:0}
+  .day ha-icon{--mdc-icon-size:29px;color:var(--primary-color);margin:7px 0 3px}
+  .day-name{font-size:12px;font-weight:650}
+  .day-date{font-size:9.5px;color:var(--secondary-text-color);margin-top:1px}
+  .day-temp{font-size:16px;font-weight:650;margin-top:5px}
+  .day-low{font-size:12px;color:var(--secondary-text-color);font-weight:400;margin-left:3px}
+  .series-meta{display:flex;align-items:center;justify-content:flex-end;gap:5px;font-size:9.5px;color:var(--secondary-text-color);margin-top:9px}
+  .temp-chart{width:100%;height:auto;display:block;overflow:visible;margin-top:4px}
+  @media(max-width:420px){ha-card{padding:13px}.big{font-size:34px}.hero-icon{--mdc-icon-size:46px}}
 `;
 
 function esc(value) {
@@ -336,7 +352,116 @@ export class WeatherCentralCard extends HTMLElement {
     `;
   }
 
-  _seriesMeta(series, language) {\n    if (!series || (!this._config.show_sources && !this._config.show_freshness)) return "";\n    const dot = this._config.show_freshness\n      ? `<span class="dot ${series.freshness?.status || "unknown"}" title="${esc(tr(language, series.freshness?.status || "unknown"))}"></span>`\n      : "";\n    const arrow = series.fallbackLevel > 0 ? `<span class="fallback">↳</span>` : "";\n    const source = this._config.show_sources ? esc(series.source) : "";\n    return `<div class="series-meta">${dot}${arrow}${source}</div>`;\n  }\n\n  _hourlySeries() {\n    const series = this._forecast.get("hourly");\n    if (!series) return null;\n    const cutoff = Date.now() - 45 * 60000;\n    return {\n      ...series,\n      forecast: series.forecast\n        .filter((entry) => Date.parse(entry.datetime) >= cutoff)\n        .slice(0, 12),\n    };\n  }\n\n  _temperatureForecast(language) {\n    const series = this._hourlySeries();\n    const values = (series?.forecast || []).filter((entry) => Number.isFinite(entry.temperature));\n    if (values.length < 2) return `<div class="empty">${esc(tr(language, "no_data"))}</div>`;\n\n    const width = 620;\n    const height = 178;\n    const left = 28;\n    const right = 28;\n    const top = 28;\n    const bottom = 40;\n    const temps = values.map((entry) => entry.temperature);\n    const min = Math.min(...temps);\n    const max = Math.max(...temps);\n    const span = Math.max(2, max - min);\n    const chartMin = min - 1;\n    const chartMax = max + 1;\n    const range = Math.max(2, chartMax - chartMin);\n    const plotWidth = width - left - right;\n    const plotHeight = height - top - bottom;\n\n    const points = values.map((entry, index) => {\n      const x = left + (index * plotWidth) / Math.max(1, values.length - 1);\n      const y = top + ((chartMax - entry.temperature) / range) * plotHeight;\n      const d = new Date(entry.datetime);\n      return {\n        x, y, value: entry.temperature,\n        time: d.toLocaleTimeString(language === "sv" ? "sv-SE" : "en-GB", { hour: "2-digit", minute: "2-digit" }),\n      };\n    });\n\n    const polyline = points.map((p) => `${p.x},${p.y}`).join(" ");\n    const labels = points.map((p, index) => {\n      const show = index === 0 || index === points.length - 1 || index % 2 === 0;\n      if (!show) return `<circle cx="${p.x}" cy="${p.y}" r="3.2" fill="var(--primary-color)"/>`;\n      return `<circle cx="${p.x}" cy="${p.y}" r="3.7" fill="var(--primary-color)"/>\n        + `<text x="${p.x}" y="${p.y - 9}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--primary-text-color)">${Math.round(p.value)}°</text>`\n        + `<text x="${p.x}" y="${height - 12}" text-anchor="middle" font-size="9.5" fill="var(--secondary-text-color)">${esc(p.time)}</text>`;\n    }).join("");\n\n    return `<div class="forecast-head"><div class="section-title" style="margin:0"><ha-icon icon="mdi:thermometer"></ha-icon>${esc(tr(language, "view_temperature"))}</div><div class="forecast-sub">${esc(tr(language, "next_12_hours"))}</div></div>`\n      + `<svg class="temp-chart" viewBox="0 0 ${width} ${height}">`\n      + `<line x1="${left}" y1="${height-bottom}" x2="${width-right}" y2="${height-bottom}" stroke="var(--divider-color)" stroke-width="1"/>`\n      + `<polyline points="${polyline}" fill="none" stroke="var(--primary-color)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>${labels}</svg>`\n      + this._seriesMeta(series, language);\n  }\n\n  _precipitationForecast(language) {\n    const series = this._hourlySeries();\n    const values = series?.forecast || [];\n    if (!values.length) return `<div class="empty">${esc(tr(language, "no_data"))}</div>`;\n\n    const cells = values.map((entry) => {\n      const d = new Date(entry.datetime);\n      const time = d.toLocaleTimeString(language === "sv" ? "sv-SE" : "en-GB", { hour: "2-digit", minute: "2-digit" });\n      const probability = Number.isFinite(entry.precipitation_probability) ? `${Math.round(entry.precipitation_probability)} %` : "–";\n      const amount = Number.isFinite(entry.precipitation) ? `${formatValue(entry.precipitation, 1)} mm` : "–";\n      return `<div class="hour"><div class="hour-time">${esc(time)}</div><div class="hour-main">${esc(probability)}</div><div class="hour-sub">${esc(amount)}</div></div>`;\n    }).join("");\n\n    return `<div class="forecast-head"><div class="section-title" style="margin:0"><ha-icon icon="mdi:weather-rainy"></ha-icon>${esc(tr(language, "view_precipitation"))}</div><div class="forecast-sub">${esc(tr(language, "next_12_hours"))}</div></div>`\n      + `<div class="hours">${cells}</div>`\n      + this._seriesMeta(series, language);\n  }\n\n  _dailyForecast(language) {\n    const series = this._forecast.get("daily");\n    const values = (series?.forecast || []).slice(0, 7);\n    if (!values.length) return `<div class="empty">${esc(tr(language, "no_data"))}</div>`;\n\n    const locale = language === "sv" ? "sv-SE" : "en-GB";\n    const cells = values.map((entry, index) => {\n      const d = new Date(entry.datetime);\n      const name = index === 0\n        ? (language === "sv" ? "Idag" : "Today")\n        : d.toLocaleDateString(locale, { weekday: "short" }).replace(".", "");\n      const date = d.toLocaleDateString(locale, { day: "numeric", month: "numeric" });\n      const high = Number.isFinite(entry.temperature) ? `${Math.round(entry.temperature)}°` : "–";\n      const low = Number.isFinite(entry.templow) ? `${Math.round(entry.templow)}°` : "";\n      const rain = Number.isFinite(entry.precipitation_probability) ? `${Math.round(entry.precipitation_probability)} %` : "–";\n      return `<div class="day"><div class="day-name">${esc(name)}</div><div class="day-date">${esc(date)}</div><ha-icon icon="${iconForCondition(entry.condition)}"></ha-icon><div class="day-temp">${esc(high)}<span class="day-low">${esc(low)}</span></div><div class="hour-sub">💧 ${esc(rain)}</div></div>`;\n    }).join("");\n\n    return `<div class="forecast-head"><div class="section-title" style="margin:0"><ha-icon icon="mdi:calendar-week"></ha-icon>${esc(tr(language, "view_forecast"))}</div><div class="forecast-sub">${esc(tr(language, "today_plus_6"))}</div></div>`\n      + `<div class="forecast-days">${cells}</div>`\n      + this._seriesMeta(series, language);\n  }\n  _wind(language) {
+  _seriesMeta(series, language) {
+    if (!series || (!this._config.show_sources && !this._config.show_freshness)) return "";
+    const dot = this._config.show_freshness
+      ? `<span class="dot ${series.freshness?.status || "unknown"}" title="${esc(tr(language, series.freshness?.status || "unknown"))}"></span>`
+      : "";
+    const arrow = series.fallbackLevel > 0 ? `<span class="fallback">↳</span>` : "";
+    const source = this._config.show_sources ? esc(series.source) : "";
+    return `<div class="series-meta">${dot}${arrow}${source}</div>`;
+  }
+
+  _hourlySeries() {
+    const series = this._forecast.get("hourly");
+    if (!series) return null;
+    const cutoff = Date.now() - 45 * 60000;
+    return {
+      ...series,
+      forecast: series.forecast
+        .filter((entry) => Date.parse(entry.datetime) >= cutoff)
+        .slice(0, 12),
+    };
+  }
+
+  _temperatureForecast(language) {
+    const series = this._hourlySeries();
+    const values = (series?.forecast || []).filter((entry) => Number.isFinite(entry.temperature));
+    if (values.length < 2) return `<div class="empty">${esc(tr(language, "no_data"))}</div>`;
+
+    const width = 620;
+    const height = 178;
+    const left = 28;
+    const right = 28;
+    const top = 28;
+    const bottom = 40;
+    const temps = values.map((entry) => entry.temperature);
+    const min = Math.min(...temps);
+    const max = Math.max(...temps);
+    const span = Math.max(2, max - min);
+    const chartMin = min - 1;
+    const chartMax = max + 1;
+    const range = Math.max(2, chartMax - chartMin);
+    const plotWidth = width - left - right;
+    const plotHeight = height - top - bottom;
+
+    const points = values.map((entry, index) => {
+      const x = left + (index * plotWidth) / Math.max(1, values.length - 1);
+      const y = top + ((chartMax - entry.temperature) / range) * plotHeight;
+      const d = new Date(entry.datetime);
+      return {
+        x, y, value: entry.temperature,
+        time: d.toLocaleTimeString(language === "sv" ? "sv-SE" : "en-GB", { hour: "2-digit", minute: "2-digit" }),
+      };
+    });
+
+    const polyline = points.map((p) => `${p.x},${p.y}`).join(" ");
+    const labels = points.map((p, index) => {
+      const show = index === 0 || index === points.length - 1 || index % 2 === 0;
+      if (!show) return `<circle cx="${p.x}" cy="${p.y}" r="3.2" fill="var(--primary-color)"/>`;
+      return `<circle cx="${p.x}" cy="${p.y}" r="3.7" fill="var(--primary-color)"/>
+        + `<text x="${p.x}" y="${p.y - 9}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--primary-text-color)">${Math.round(p.value)}°</text>`
+        + `<text x="${p.x}" y="${height - 12}" text-anchor="middle" font-size="9.5" fill="var(--secondary-text-color)">${esc(p.time)}</text>`;
+    }).join("");
+
+    return `<div class="forecast-head"><div class="section-title" style="margin:0"><ha-icon icon="mdi:thermometer"></ha-icon>${esc(tr(language, "view_temperature"))}</div><div class="forecast-sub">${esc(tr(language, "next_12_hours"))}</div></div>`
+      + `<svg class="temp-chart" viewBox="0 0 ${width} ${height}">`
+      + `<line x1="${left}" y1="${height-bottom}" x2="${width-right}" y2="${height-bottom}" stroke="var(--divider-color)" stroke-width="1"/>`
+      + `<polyline points="${polyline}" fill="none" stroke="var(--primary-color)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>${labels}</svg>`
+      + this._seriesMeta(series, language);
+  }
+
+  _precipitationForecast(language) {
+    const series = this._hourlySeries();
+    const values = series?.forecast || [];
+    if (!values.length) return `<div class="empty">${esc(tr(language, "no_data"))}</div>`;
+
+    const cells = values.map((entry) => {
+      const d = new Date(entry.datetime);
+      const time = d.toLocaleTimeString(language === "sv" ? "sv-SE" : "en-GB", { hour: "2-digit", minute: "2-digit" });
+      const probability = Number.isFinite(entry.precipitation_probability) ? `${Math.round(entry.precipitation_probability)} %` : "–";
+      const amount = Number.isFinite(entry.precipitation) ? `${formatValue(entry.precipitation, 1)} mm` : "–";
+      return `<div class="hour"><div class="hour-time">${esc(time)}</div><div class="hour-main">${esc(probability)}</div><div class="hour-sub">${esc(amount)}</div></div>`;
+    }).join("");
+
+    return `<div class="forecast-head"><div class="section-title" style="margin:0"><ha-icon icon="mdi:weather-rainy"></ha-icon>${esc(tr(language, "view_precipitation"))}</div><div class="forecast-sub">${esc(tr(language, "next_12_hours"))}</div></div>`
+      + `<div class="hours">${cells}</div>`
+      + this._seriesMeta(series, language);
+  }
+
+  _dailyForecast(language) {
+    const series = this._forecast.get("daily");
+    const values = (series?.forecast || []).slice(0, 7);
+    if (!values.length) return `<div class="empty">${esc(tr(language, "no_data"))}</div>`;
+
+    const locale = language === "sv" ? "sv-SE" : "en-GB";
+    const cells = values.map((entry, index) => {
+      const d = new Date(entry.datetime);
+      const name = index === 0
+        ? (language === "sv" ? "Idag" : "Today")
+        : d.toLocaleDateString(locale, { weekday: "short" }).replace(".", "");
+      const date = d.toLocaleDateString(locale, { day: "numeric", month: "numeric" });
+      const high = Number.isFinite(entry.temperature) ? `${Math.round(entry.temperature)}°` : "–";
+      const low = Number.isFinite(entry.templow) ? `${Math.round(entry.templow)}°` : "";
+      const rain = Number.isFinite(entry.precipitation_probability) ? `${Math.round(entry.precipitation_probability)} %` : "–";
+      return `<div class="day"><div class="day-name">${esc(name)}</div><div class="day-date">${esc(date)}</div><ha-icon icon="${iconForCondition(entry.condition)}"></ha-icon><div class="day-temp">${esc(high)}<span class="day-low">${esc(low)}</span></div><div class="hour-sub">💧 ${esc(rain)}</div></div>`;
+    }).join("");
+
+    return `<div class="forecast-head"><div class="section-title" style="margin:0"><ha-icon icon="mdi:calendar-week"></ha-icon>${esc(tr(language, "view_forecast"))}</div><div class="forecast-sub">${esc(tr(language, "today_plus_6"))}</div></div>`
+      + `<div class="forecast-days">${cells}</div>`
+      + this._seriesMeta(series, language);
+  }
+  _wind(language) {
     const wind = this._resolver.resolve("wind_speed");
     const gust = this._resolver.resolve("wind_gust");
     const bearing = this._resolver.resolve("wind_bearing");
