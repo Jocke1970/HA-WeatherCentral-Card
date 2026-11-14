@@ -594,14 +594,23 @@ export class WeatherCentralCard extends HTMLElement {
         String(explicit.state).toLowerCase()
       )
     ) {
-      return String(explicit.state);
+      return {
+        text: String(explicit.state),
+        source:
+          explicit.attributes?.friendly_name ||
+          summaryEntity,
+        freshness: {
+          status: "unknown",
+        },
+        fallbackLevel: 0,
+      };
     }
 
     const series = this._forecast.get("daily");
     const days = (series?.forecast || [])
       .slice(0, 7);
 
-    if (!days.length) return "";
+    if (!days.length) return null;
 
     const wet = days.filter((entry) =>
       [
@@ -664,7 +673,12 @@ export class WeatherCentralCard extends HTMLElement {
       );
     }
 
-    return parts.join(" ");
+    return {
+      text: parts.join(" "),
+      source: series.source,
+      freshness: series.freshness,
+      fallbackLevel: series.fallbackLevel,
+    };
   }
 
   _overviewTile(
@@ -923,10 +937,23 @@ export class WeatherCentralCard extends HTMLElement {
         </div>
       </div>
 
-      ${summary
+      ${summary?.text
         ? `
           <div class="overview-summary">
-            ${esc(summary)}
+            ${esc(summary.text)}
+            ${summary.fallbackLevel > 0
+              ? `
+                <div class="meta" style="justify-content:flex-end">
+                  ${this._config.show_freshness
+                    ? `<span class="dot ${summary.freshness?.status || "unknown"}"></span>`
+                    : ""}
+                  <span class="fallback">↳</span>
+                  ${this._config.show_sources
+                    ? esc(summary.source)
+                    : ""}
+                </div>
+              `
+              : ""}
             <div class="overview-updated">
               ↻ ${esc(
                 tr(language, "updated")
