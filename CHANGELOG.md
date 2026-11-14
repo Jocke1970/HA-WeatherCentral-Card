@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026.11.0b7
+
+Rich overview-card redesign.
+
+- Rebuilt the standard Overview using the proven information hierarchy from the original Weather Central card.
+- Added a compact hero with large weather icon, temperature, condition, feels-like value, dew point and cloud cover.
+- Restored temperature-driven whole-card background tint.
+- Added provider-neutral forecast summary generation when no explicit summary entity is configured.
+- Summary provenance is shown when a fallback forecast provider is used.
+- Added updated-time display from the base weather entity.
+- Default overview metrics are now Humidity, Clouds, Dew point and Precipitation.
+- Dew point is derived from temperature + humidity when no direct source is available, and is explicitly marked as calculated.
+- Precipitation falls back to the current-hour forecast only when no current source is available and is then labelled as a 1-hour amount.
+- Added configurable Overview metric slots and optional summary entity in the visual editor.
+- Added Dew point and Precipitation to advanced per-parameter source overrides.
+- Preserved real precipitation-rate units such as mm/h for current sensors.
+- Tapping the overview hero opens More info for the selected weather entity.
+
 ## 2026.11.0b6
 
 Compact overview-card polish.
