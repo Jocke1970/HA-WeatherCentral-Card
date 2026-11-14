@@ -139,7 +139,16 @@ export class WeatherValueResolver {
       result.push({ entityId, role, useForecastClock });
     };
 
-    add(manual.primary, "manual-primary");
+    if (manual.primary) {
+      add(manual.primary, "manual-primary");
+
+      if (this.config.use_fallbacks !== false) {
+        for (const entityId of manual.fallbacks) {
+          add(entityId, "manual-fallback");
+        }
+      }
+    }
+
     add(
       provider.entities?.[param],
       "provider",
@@ -152,8 +161,10 @@ export class WeatherValueResolver {
     );
 
     if (this.config.use_fallbacks !== false) {
-      for (const entityId of manual.fallbacks) {
-        add(entityId, "manual-fallback");
+      if (!manual.primary) {
+        for (const entityId of manual.fallbacks) {
+          add(entityId, "manual-fallback");
+        }
       }
 
       add(this.config.fallback_weather_1, "fallback-weather");
