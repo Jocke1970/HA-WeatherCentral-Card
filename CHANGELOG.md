@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026.11.0b3
+
+Expanded Weather Central beyond the core forecast views.
+
+- Added Sky view with Sun, Moon, UV index and aurora data.
+- Added Risks view with provider-neutral frost/ice derivation plus thunder and fire-risk sources.
+- Added SMHI Alerts view using the existing alert status and message entities.
+- Added Air quality view with AQI, dominant pollutant, O₃, NO₂, PM2.5 and PM10.
+- Added Comparison view that discovers known weather providers and shows optional Weather Consensus values without recomputing consensus inside the card.
+- Added visual-editor source overrides for all external modules.
+- Added SMHI Core provider recognition for comparison.
+- Preserved unknown risk/alert states: missing data is never rendered as “no risk” or “no warnings”.
+- Centered the final row in the 7-day forecast and added more top spacing to the temperature chart.
+- Added regression tests for external modules and unknown-state handling.
+
 ## 2026.11.0b2
 
 Visual polish after the first Home Assistant inspection.
