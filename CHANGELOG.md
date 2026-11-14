@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026.11.0b4
+
+Sections-layout sizing fix.
+
+- Changed `getGridOptions().rows` from a fixed value to `"auto"`.
+- Dynamic Weather Central views now report their real content height to Home Assistant Sections.
+- Prevents taller views from visually overlapping the card below.
+- Width remains 12 columns with a 6-column minimum.
+
 ## 2026.11.0b3
 
 Expanded Weather Central beyond the core forecast views.
