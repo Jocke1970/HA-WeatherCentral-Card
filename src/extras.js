@@ -873,69 +873,82 @@ export function getComparisonData(
   ];
 
   const metadataProviders =
-    comparisonSensorGroups(hass);
+    comparisonSensorGroups(hass).map((group) => ({
+      entityId:
+        group.entities.temperature ||
+        group.entities.wind_speed ||
+        Object.values(group.entities)[0] ||
+        null,
+      source: group.source,
+      sourceId: group.sourceId,
+      modelFamily: group.modelFamily,
+      implementation: group.implementation,
+      freshness: group.freshness,
+      values: Object.fromEntries(
+        params.map((param) => [
+          param,
+          Number.isFinite(group.values[param])
+            ? group.values[param]
+            : null,
+        ])
+      ),
+    }));
 
-  const providers = metadataProviders.length
-    ? metadataProviders.map((group) => ({
-        entityId:
-          group.entities.temperature ||
-          group.entities.wind_speed ||
-          Object.values(group.entities)[0] ||
-          null,
-        source: group.source,
-        sourceId: group.sourceId,
-        modelFamily: group.modelFamily,
-        implementation: group.implementation,
-        freshness: group.freshness,
-        values: Object.fromEntries(
-          params.map((param) => [
-            param,
-            Number.isFinite(group.values[param])
-              ? group.values[param]
-              : null,
-          ])
-        ),
-      }))
-    : comparisonWeatherEntities(
+  const providers = [...metadataProviders];
+  const existingSources = new Set(
+    metadataProviders.map((provider) =>
+      provider.source.toLowerCase()
+    )
+  );
+
+  for (const entityId of comparisonWeatherEntities(
+    hass,
+    config
+  )) {
+    const provider =
+      providerForWeather(entityId) || {
+        id: "generic",
+        label:
+          hass.states[entityId]?.attributes
+            ?.friendly_name || entityId,
+      };
+
+    if (
+      existingSources.has(
+        String(provider.label).toLowerCase()
+      )
+    ) {
+      continue;
+    }
+
+    providers.push({
+      entityId,
+      source: provider.label,
+      sourceId: provider.id,
+      modelFamily:
+        provider.id === "smhi_local" ||
+        provider.id === "smhi_core"
+          ? "SMHI snow1g"
+          : null,
+      implementation: null,
+      freshness: entityFreshness(
         hass,
-        config
-      ).map((entityId) => {
-        const provider =
-          providerForWeather(entityId) || {
-            id: "generic",
-            label:
-              hass.states[entityId]?.attributes
-                ?.friendly_name || entityId,
-          };
-
-        return {
-          entityId,
-          source: provider.label,
-          sourceId: provider.id,
-          modelFamily:
-            provider.id === "smhi_local" ||
-            provider.id === "smhi_core"
-              ? "SMHI snow1g"
-              : null,
-          implementation: null,
-          freshness: entityFreshness(
+        entityId,
+        60,
+        240
+      ),
+      values: Object.fromEntries(
+        params.map((param) => [
+          param,
+          weatherReading(
             hass,
             entityId,
-            60,
-            240
+            param
           ),
-          values: Object.fromEntries(
-            params.map((param) => [
-              param,
-              weatherReading(
-                hass,
-                entityId,
-                param
-              ),
-            ])
-          ),
-        };
-      });
+        ])
+      ),
+    });
+  }
 
   const tempConsensus =
     findConsensusEntity(
