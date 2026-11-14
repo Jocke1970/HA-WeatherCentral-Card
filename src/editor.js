@@ -260,6 +260,15 @@ export class WeatherCentralCardEditor extends HTMLElement {
             <option value="overview" ${config.view === "overview" ? "selected" : ""}>
               ${tr(language, "view_overview")}
             </option>
+            <option value="temperature" ${config.view === "temperature" ? "selected" : ""}>
+              ${tr(language, "view_temperature")}
+            </option>
+            <option value="precipitation" ${config.view === "precipitation" ? "selected" : ""}>
+              ${tr(language, "view_precipitation")}
+            </option>
+            <option value="forecast" ${config.view === "forecast" ? "selected" : ""}>
+              ${tr(language, "view_forecast")}
+            </option>
             <option value="wind" ${config.view === "wind" ? "selected" : ""}>
               ${tr(language, "view_wind")}
             </option>
