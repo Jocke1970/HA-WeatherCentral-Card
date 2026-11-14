@@ -52,5 +52,6 @@
   "sunny": "Soligt",
   "windy": "Blåsigt",
   "windy-variant": "Blåsigt",
-  "data_coverage": "Datatäckning"
+  "data_coverage": "Datatäckning",
+  "missing": "Saknas"
 }
