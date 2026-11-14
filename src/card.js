@@ -10,7 +10,7 @@ import {
   getComparisonData,
 } from "./extras.js";
 
-const VERSION = "2026.11.0b3";
+const VERSION = "2026.11.0b4";
 
 const ICONS = {
   "clear-night": "mdi:weather-night",
@@ -241,7 +241,11 @@ export class WeatherCentralCard extends HTMLElement {
   }
 
   getGridOptions() {
-    return { rows: 4, columns: 12, min_rows: 3, min_columns: 6 };
+    return {
+      columns: 12,
+      rows: "auto",
+      min_columns: 6,
+    };
   }
 
   _scheduleRender() {
