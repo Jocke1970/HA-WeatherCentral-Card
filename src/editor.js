@@ -1,4 +1,5 @@
 import { languageFor, tr } from "./i18n.js";
+import { EXTRA_DEFAULTS } from "./extras.js";
 
 const EDITOR_PARAMS = [
   "temperature",
@@ -10,6 +11,25 @@ const EDITOR_PARAMS = [
   "pressure",
   "visibility",
 ];
+
+const EXTRA_FIELDS = [
+  ["sun_entity", "editor_sun"],
+  ["moon_entity", "editor_moon"],
+  ["uv_entity", "editor_uv"],
+  ["aurora_entity", "editor_aurora"],
+  ["frost_risk_entity", "editor_frost"],
+  ["fire_risk_entity", "editor_fire"],
+  ["thunder_risk_entity", "editor_thunder"],
+  ["alerts_status_entity", "editor_alerts_status"],
+  ["alerts_entity", "editor_alerts"],
+  ["aqi_entity", "editor_aqi"],
+  ["dominant_pollutant_entity", "editor_dominant"],
+  ["ozone_entity", "editor_ozone"],
+  ["no2_entity", "editor_no2"],
+  ["pm25_entity", "editor_pm25"],
+  ["pm10_entity", "editor_pm10"],
+];
+
 
 const CSS = `
   :host{display:block;padding:4px 0}
@@ -202,6 +222,26 @@ export class WeatherCentralCardEditor extends HTMLElement {
     const language = languageFor(this._hass);
     const config = this._config || {};
 
+    const extras = EXTRA_FIELDS.map(([field, labelKey]) => {
+      const configured = config[field];
+      const fallback = EXTRA_DEFAULTS[field];
+      const autoValue =
+        configured ||
+        (
+          fallback &&
+          this._hass?.states?.[fallback]
+            ? fallback
+            : ""
+        );
+
+      return `
+        <div class="param">
+          <div class="param-title">${tr(language, labelKey)}</div>
+          ${this._picker(field, autoValue)}
+        </div>
+      `;
+    }).join("");
+
     const advanced = EDITOR_PARAMS.map((param) => {
       const parameterConfig =
         config.parameters?.[param] || {};
@@ -275,6 +315,21 @@ export class WeatherCentralCardEditor extends HTMLElement {
             <option value="pressure" ${config.view === "pressure" ? "selected" : ""}>
               ${tr(language, "view_pressure")}
             </option>
+            <option value="sky" ${config.view === "sky" ? "selected" : ""}>
+              ${tr(language, "view_sky")}
+            </option>
+            <option value="risks" ${config.view === "risks" ? "selected" : ""}>
+              ${tr(language, "view_risks")}
+            </option>
+            <option value="alerts" ${config.view === "alerts" ? "selected" : ""}>
+              ${tr(language, "view_alerts")}
+            </option>
+            <option value="air_quality" ${config.view === "air_quality" ? "selected" : ""}>
+              ${tr(language, "view_air_quality")}
+            </option>
+            <option value="comparison" ${config.view === "comparison" ? "selected" : ""}>
+              ${tr(language, "view_comparison")}
+            </option>
             <option value="diagnostics" ${config.view === "diagnostics" ? "selected" : ""}>
               ${tr(language, "view_diagnostics")}
             </option>
@@ -342,6 +397,18 @@ export class WeatherCentralCardEditor extends HTMLElement {
             "editor_hint"
           )}</div>
           ${advanced}
+        </details>
+
+        <details>
+          <summary>${tr(
+            language,
+            "editor_extra_sources"
+          )}</summary>
+          <div class="hint">${tr(
+            language,
+            "editor_extra_hint"
+          )}</div>
+          ${extras}
         </details>
       </div>
     `;
