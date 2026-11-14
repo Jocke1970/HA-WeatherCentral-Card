@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026.11.0b6
+
+Compact overview-card polish.
+
+- Reworked the Overview metric area into compact mini tiles.
+- Metric content is centered for a cleaner dashboard/instrument-panel look.
+- Uses an auto-fitting grid: four compact metrics fit on one row when space allows and wrap naturally on narrower cards.
+- Preserves freshness indicators, source/fallback provenance and per-tile More info actions.
+- No changes to the larger Wind & air tiles.
+
 ## 2026.11.0b5
 
 Expanded visual intelligence and comparison data.
