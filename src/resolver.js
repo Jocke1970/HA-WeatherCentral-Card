@@ -64,7 +64,12 @@ function readWeatherAttribute(hass, weatherEntity, param) {
     );
 
     if (value !== null) {
-      return { value, entityId: weatherEntity, weatherAttribute: attr };
+      return {
+        value,
+        entityId: weatherEntity,
+        weatherAttribute: attr,
+        sourceUnit: weatherAttributeUnit(stateObj, param),
+      };
     }
   }
 
@@ -89,7 +94,11 @@ function readEntity(hass, entityId, param) {
 
   if (value === null) return null;
 
-  return { value, entityId };
+  return {
+    value,
+    entityId,
+    sourceUnit: stateObj.attributes?.unit_of_measurement || null,
+  };
 }
 
 export class WeatherValueResolver {
@@ -203,6 +212,7 @@ export class WeatherValueResolver {
       role: candidate.role,
       fallbackLevel: index,
       freshness,
+      sourceUnit: reading.sourceUnit || null,
       stale: freshness.status === "stale",
     };
   }

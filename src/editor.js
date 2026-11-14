@@ -10,6 +10,8 @@ const EDITOR_PARAMS = [
   "wind_gust",
   "pressure",
   "visibility",
+  "dew_point",
+  "precipitation",
 ];
 
 const EXTRA_FIELDS = [
@@ -89,6 +91,12 @@ export class WeatherCentralCardEditor extends HTMLElement {
       show_freshness: true,
       use_fallbacks: true,
       dynamic_backgrounds: true,
+      overview_metrics: [
+        "humidity",
+        "cloud_coverage",
+        "dew_point",
+        "precipitation",
+      ],
       ...(config || {}),
     };
 
@@ -115,6 +123,30 @@ export class WeatherCentralCardEditor extends HTMLElement {
     } else {
       next[field] = value;
     }
+
+    this._emit(next);
+  }
+
+  _setOverviewMetric(index, value) {
+    const next = JSON.parse(
+      JSON.stringify(this._config || {})
+    );
+
+    const defaults = [
+      "humidity",
+      "cloud_coverage",
+      "dew_point",
+      "precipitation",
+    ];
+
+    const metrics = Array.isArray(
+      next.overview_metrics
+    )
+      ? [...next.overview_metrics]
+      : [...defaults];
+
+    metrics[index] = value;
+    next.overview_metrics = metrics.slice(0, 4);
 
     this._emit(next);
   }
@@ -161,8 +193,17 @@ export class WeatherCentralCardEditor extends HTMLElement {
     const element = event.target;
     const field = element?.dataset?.field;
 
+    if (!field) return;
+
+    if (element?.dataset?.overviewIndex != null) {
+      this._setOverviewMetric(
+        Number(element.dataset.overviewIndex),
+        element.value
+      );
+      return;
+    }
+
     if (
-      !field ||
       element?.dataset?.param ||
       element?.tagName?.toLowerCase() === "ha-entity-picker"
     ) {
@@ -222,6 +263,51 @@ export class WeatherCentralCardEditor extends HTMLElement {
   _render() {
     const language = languageFor(this._hass);
     const config = this._config || {};
+
+    const metricOptions = [
+      "humidity",
+      "cloud_coverage",
+      "dew_point",
+      "precipitation",
+      "wind_speed",
+      "wind_gust",
+      "visibility",
+      "pressure",
+    ];
+
+    const overviewMetrics = (
+      Array.isArray(config.overview_metrics)
+        ? config.overview_metrics
+        : [
+            "humidity",
+            "cloud_coverage",
+            "dew_point",
+            "precipitation",
+          ]
+    ).slice(0, 4);
+
+    const overviewMetricEditors =
+      overviewMetrics.map((selected, index) => `
+        <div class="row">
+          <label>${tr(
+            language,
+            "editor_overview_metric"
+          )} ${index + 1}</label>
+          <select
+            data-field="overview_metric_${index}"
+            data-overview-index="${index}"
+          >
+            ${metricOptions.map((param) => `
+              <option
+                value="${param}"
+                ${selected === param ? "selected" : ""}
+              >
+                ${tr(language, param)}
+              </option>
+            `).join("")}
+          </select>
+        </div>
+      `).join("");
 
     const extras = EXTRA_FIELDS.map(([field, labelKey]) => {
       const configured = config[field];
@@ -294,6 +380,30 @@ export class WeatherCentralCardEditor extends HTMLElement {
             config.weather_entity
           )}
         </div>
+
+        <details>
+          <summary>${tr(
+            language,
+            "editor_overview"
+          )}</summary>
+          <div class="hint">${tr(
+            language,
+            "editor_overview_hint"
+          )}</div>
+          <div class="cols">
+            ${overviewMetricEditors}
+          </div>
+          <div class="row" style="margin-top:10px">
+            <label>${tr(
+              language,
+              "editor_summary_entity"
+            )}</label>
+            ${this._picker(
+              "summary_entity",
+              config.summary_entity
+            )}
+          </div>
+        </details>
 
         <div class="row">
           <label>${tr(language, "editor_view")}</label>

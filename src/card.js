@@ -10,7 +10,7 @@ import {
   getComparisonData,
 } from "./extras.js";
 
-const VERSION = "2026.11.0b6";
+const VERSION = "2026.11.0b7";
 
 const ICONS = {
   "clear-night": "mdi:weather-night",
@@ -33,22 +33,29 @@ const ICONS = {
 const CSS = `
   :host{display:block;min-width:0}
   ha-card{padding:16px;overflow:hidden}
-  .top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+  .top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
   .heading{display:flex;align-items:center;gap:12px;min-width:0}
-  .hero-icon{--mdc-icon-size:52px;color:var(--primary-color)}
-  .title{font-size:12px;color:var(--secondary-text-color)}
+  .hero-icon{--mdc-icon-size:70px;color:var(--primary-color)}
+  .title{font-size:11px;color:var(--secondary-text-color)}
   .condition{font-size:18px;font-weight:650;line-height:1.2;margin-top:2px}
   .provider{font-size:10px;color:var(--secondary-text-color);white-space:nowrap}
+  .overview-hero{display:grid;grid-template-columns:82px minmax(0,1fr) auto;gap:12px;align-items:center;padding:2px 0 10px}
+  .overview-info{min-width:0}
+  .overview-big{font-size:32px;font-weight:650;line-height:1.05}
+  .overview-condition{font-size:18px;font-weight:650;line-height:1.2;margin-top:3px}
+  .overview-detail{font-size:12px;color:var(--secondary-text-color);line-height:1.45;margin-top:5px}
+  .overview-summary{border-top:1px solid var(--divider-color);padding:10px 0 9px;font-size:12px;line-height:1.45}
+  .overview-updated{text-align:right;font-size:10px;color:var(--secondary-text-color);margin-top:6px}
   .main{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:end;margin:2px 0 14px}
   .big{font-size:38px;font-weight:650;line-height:1}
   .secondary{font-size:12px;color:var(--secondary-text-color);margin-top:5px}
   .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
   .overview-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px}
   .tile{padding:11px;border-radius:12px;background:var(--secondary-background-color);min-width:0}
-  .overview-tile{padding:8px 6px;border-radius:10px;text-align:center}
-  .overview-tile .tile-head{justify-content:center;gap:5px;font-size:10px}
-  .overview-tile .tile-head ha-icon{--mdc-icon-size:17px}
-  .overview-tile .tile-value{font-size:16px;margin-top:3px}
+  .overview-tile{padding:9px 5px 8px;border-radius:11px;text-align:center}
+  .overview-tile .tile-head{justify-content:center;gap:5px;font-size:10.5px;font-weight:600;color:var(--primary-text-color)}
+  .overview-tile .tile-head ha-icon{--mdc-icon-size:19px}
+  .overview-tile .tile-value{font-size:13px;margin-top:2px;font-weight:500}
   .overview-tile .meta{justify-content:center;margin-top:4px}
   .tile-head{display:flex;align-items:center;gap:7px;color:var(--secondary-text-color);font-size:11px}
   .tile-head ha-icon{--mdc-icon-size:19px;color:var(--primary-color);flex:none}
@@ -115,7 +122,7 @@ const CSS = `
   .consensus-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
   .consensus-chip{padding:7px 9px;border-radius:10px;background:var(--secondary-background-color);font-size:11px}
   .pressure-main .big{font-size:34px}
-  @media(max-width:420px){ha-card{padding:13px}.big{font-size:34px}.hero-icon{--mdc-icon-size:46px}.day{flex-basis:calc(50% - 5px)}.risk-grid{grid-template-columns:1fr}.pollutants{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(max-width:420px){ha-card{padding:13px}.big{font-size:34px}.hero-icon{--mdc-icon-size:58px}.overview-hero{grid-template-columns:64px minmax(0,1fr) auto;gap:9px}.overview-big{font-size:28px}.day{flex-basis:calc(50% - 5px)}.risk-grid{grid-template-columns:1fr}.pollutants{grid-template-columns:repeat(2,minmax(0,1fr))}}
 `;
 
 function esc(value) {
@@ -211,6 +218,68 @@ function aqiTint(value) {
   return "rgba(127,29,29,0.060)";
 }
 
+function overviewTemperatureVisual(value) {
+  if (!Number.isFinite(value)) return { color: "#039be5", tint: "rgba(3,169,244,0.10)" };
+  if (value <= -5) return { color: "#2979ff", tint: "rgba(41,121,255,0.16)" };
+  if (value <= 5) return { color: "#039be5", tint: "rgba(3,169,244,0.14)" };
+  if (value <= 15) return { color: "#00acc1", tint: "rgba(0,188,212,0.12)" };
+  if (value <= 22) return { color: "#f9a825", tint: "rgba(255,193,7,0.12)" };
+  if (value <= 28) return { color: "#fb8c00", tint: "rgba(255,152,0,0.13)" };
+  return { color: "#e53935", tint: "rgba(244,67,54,0.14)" };
+}
+
+function overviewMetricVisual(param, value) {
+  const unknown = { color: "#78909c", tint: "rgba(120,144,156,0.07)", icon: PARAM_META[param]?.icon };
+
+  if (!Number.isFinite(value)) return unknown;
+
+  if (param === "humidity") {
+    if (value >= 90) return { color: "#0277bd", tint: "rgba(2,119,189,0.15)", icon: "mdi:water-percent" };
+    if (value >= 75) return { color: "#039be5", tint: "rgba(3,155,229,0.12)", icon: "mdi:water-percent" };
+    if (value >= 50) return { color: "#00acc1", tint: "rgba(0,172,193,0.09)", icon: "mdi:water-percent" };
+    return { color: "#f9a825", tint: "rgba(249,168,37,0.09)", icon: "mdi:water-percent" };
+  }
+
+  if (param === "cloud_coverage") {
+    if (value >= 80) return { color: "#78909c", tint: "rgba(120,144,156,0.14)", icon: "mdi:weather-cloudy" };
+    if (value >= 50) return { color: "#90a4ae", tint: "rgba(144,164,174,0.11)", icon: "mdi:weather-partly-cloudy" };
+    if (value >= 20) return { color: "#42a5f5", tint: "rgba(66,165,245,0.08)", icon: "mdi:weather-partly-cloudy" };
+    return { color: "#f9a825", tint: "rgba(249,168,37,0.09)", icon: "mdi:weather-sunny" };
+  }
+
+  if (param === "dew_point") {
+    if (value >= 18) return { color: "#fb8c00", tint: "rgba(251,140,0,0.11)", icon: "mdi:water-thermometer-outline" };
+    if (value >= 12) return { color: "#00acc1", tint: "rgba(0,172,193,0.11)", icon: "mdi:water-thermometer-outline" };
+    if (value >= 5) return { color: "#00b8d4", tint: "rgba(0,184,212,0.10)", icon: "mdi:water-thermometer-outline" };
+    return { color: "#039be5", tint: "rgba(3,155,229,0.09)", icon: "mdi:water-thermometer-outline" };
+  }
+
+  if (param === "precipitation") {
+    if (value >= 7) return { color: "#1565c0", tint: "rgba(21,101,192,0.18)", icon: "mdi:weather-pouring" };
+    if (value >= 3) return { color: "#1976d2", tint: "rgba(25,118,210,0.15)", icon: "mdi:weather-pouring" };
+    if (value >= 1) return { color: "#0288d1", tint: "rgba(2,136,209,0.13)", icon: "mdi:weather-rainy" };
+    if (value > 0) return { color: "#039be5", tint: "rgba(3,155,229,0.10)", icon: "mdi:weather-rainy" };
+    return { color: "#90a4ae", tint: "rgba(144,164,174,0.06)", icon: "mdi:weather-partly-cloudy" };
+  }
+
+  return {
+    color: "var(--primary-color)",
+    tint: "rgba(120,144,156,0.06)",
+    icon: PARAM_META[param]?.icon,
+  };
+}
+
+function deriveDewPoint(tempC, humidity) {
+  if (!Number.isFinite(tempC) || !Number.isFinite(humidity) || humidity <= 0 || humidity > 100) {
+    return null;
+  }
+  const a = 17.62;
+  const b = 243.12;
+  const gamma = Math.log(humidity / 100) + (a * tempC) / (b + tempC);
+  const dew = (b * gamma) / (a - gamma);
+  return Number.isFinite(dew) ? dew : null;
+}
+
 
 export class WeatherCentralCard extends HTMLElement {
   constructor() {
@@ -276,6 +345,12 @@ export class WeatherCentralCard extends HTMLElement {
       show_freshness: true,
       use_fallbacks: true,
       dynamic_backgrounds: true,
+      overview_metrics: [
+        "humidity",
+        "cloud_coverage",
+        "dew_point",
+        "precipitation",
+      ],
       recovery_grace_seconds: 120,
       ...config,
     };
@@ -316,8 +391,11 @@ export class WeatherCentralCard extends HTMLElement {
     if (["temperature", "precipitation", "pressure", "risks"].includes(view)) {
       this._forecast.ensure("hourly");
     }
-    if (view === "forecast") {
+    if (["overview", "forecast"].includes(view)) {
       this._forecast.ensure("daily");
+    }
+    if (view === "overview") {
+      this._forecast.ensure("hourly");
     }
   }
 
@@ -388,10 +466,278 @@ export class WeatherCentralCard extends HTMLElement {
       )}°`;
     }
 
+    let unit = meta?.unit || "";
+
+    if (
+      param === "precipitation" &&
+      /\/h|per.?hour/i.test(
+        String(reading.sourceUnit || "")
+      )
+    ) {
+      unit = "mm/h";
+    }
+
     return `${formatValue(
       reading.value,
       meta?.decimals ?? 1
-    )} ${meta?.unit || ""}`.trim();
+    )} ${unit}`.trim();
+  }
+
+  _derivedDewPoint(temperature, humidity) {
+    const value = deriveDewPoint(
+      temperature?.value,
+      humidity?.value
+    );
+
+    if (!Number.isFinite(value)) return null;
+
+    const statuses = [
+      temperature?.freshness?.status,
+      humidity?.freshness?.status,
+    ];
+    const rank = {
+      unknown: 3,
+      stale: 2,
+      aging: 1,
+      fresh: 0,
+    };
+    const status = statuses
+      .filter(Boolean)
+      .sort(
+        (a, b) =>
+          (rank[b] ?? 3) - (rank[a] ?? 3)
+      )[0] || "unknown";
+
+    return {
+      param: "dew_point",
+      value,
+      entityId: null,
+      source: tr(
+        languageFor(this._hass),
+        "calculated"
+      ),
+      sourceId: "calculated",
+      role: "derived",
+      fallbackLevel: 1,
+      freshness: { status },
+      stale: status === "stale",
+      derived: true,
+    };
+  }
+
+  _overviewMetricReading(
+    param,
+    temperature,
+    humidity
+  ) {
+    const resolved = this._resolver.resolve(param);
+    if (resolved) return resolved;
+
+    if (param === "dew_point") {
+      return this._derivedDewPoint(
+        temperature,
+        humidity
+      );
+    }
+
+    if (param === "precipitation") {
+      const hourly = this._hourlySeries();
+      const first = hourly?.forecast?.[0];
+
+      if (
+        first &&
+        Number.isFinite(first.precipitation)
+      ) {
+        return {
+          param,
+          value: first.precipitation,
+          entityId: hourly.entityId,
+          source: hourly.source,
+          sourceId: hourly.sourceId,
+          role: "forecast-current-hour",
+          fallbackLevel: hourly.fallbackLevel,
+          freshness: hourly.freshness,
+          stale:
+            hourly.freshness?.status === "stale",
+          forecastFallback: true,
+        };
+      }
+    }
+
+    return null;
+  }
+
+  _overviewSummary(language) {
+    const provider =
+      this._resolver.baseProvider();
+    const autoSummaryEntity =
+      provider.id === "pirateweather" &&
+      this._hass?.states?.[
+        "sensor.pirateweather_daily_summary"
+      ]
+        ? "sensor.pirateweather_daily_summary"
+        : null;
+
+    const summaryEntity =
+      this._config.summary_entity ||
+      autoSummaryEntity;
+
+    const explicit =
+      summaryEntity &&
+      this._hass?.states?.[
+        summaryEntity
+      ];
+
+    if (
+      explicit &&
+      !["unknown", "unavailable", ""].includes(
+        String(explicit.state).toLowerCase()
+      )
+    ) {
+      return {
+        text: String(explicit.state),
+        source:
+          explicit.attributes?.friendly_name ||
+          summaryEntity,
+        freshness: {
+          status: "unknown",
+        },
+        fallbackLevel: 0,
+      };
+    }
+
+    const series = this._forecast.get("daily");
+    const days = (series?.forecast || [])
+      .slice(0, 7);
+
+    if (!days.length) return null;
+
+    const wet = days.filter((entry) =>
+      [
+        "rainy",
+        "pouring",
+        "lightning",
+        "lightning-rainy",
+        "snowy-rainy",
+      ].includes(entry.condition)
+    );
+
+    const highs = days
+      .map((entry) => ({
+        datetime: entry.datetime,
+        value: entry.temperature,
+      }))
+      .filter((entry) =>
+        Number.isFinite(entry.value)
+      );
+
+    const highest = highs.sort(
+      (a, b) => b.value - a.value
+    )[0];
+
+    const locale =
+      language === "sv" ? "sv-SE" : "en-GB";
+
+    const dayName = (raw) =>
+      new Date(raw)
+        .toLocaleDateString(locale, {
+          weekday: "long",
+        });
+
+    const parts = [];
+
+    if (wet.length) {
+      const names = wet
+        .slice(0, 3)
+        .map((entry) =>
+          dayName(entry.datetime)
+        );
+      parts.push(
+        language === "sv"
+          ? `Nederbörd väntas ${names.join(", ")}.`
+          : `Precipitation expected ${names.join(", ")}.`
+      );
+    } else {
+      parts.push(
+        language === "sv"
+          ? "Mestadels torrt de kommande dagarna."
+          : "Mostly dry over the coming days."
+      );
+    }
+
+    if (highest) {
+      parts.push(
+        language === "sv"
+          ? `Högst omkring ${Math.round(highest.value)} °C ${dayName(highest.datetime)}.`
+          : `High around ${Math.round(highest.value)} °C on ${dayName(highest.datetime)}.`
+      );
+    }
+
+    return {
+      text: parts.join(" "),
+      source: series.source,
+      freshness: series.freshness,
+      fallbackLevel: series.fallbackLevel,
+    };
+  }
+
+  _overviewTile(
+    param,
+    reading,
+    language
+  ) {
+    const visual = overviewMetricVisual(
+      param,
+      reading?.value
+    );
+    const moreInfo = reading?.entityId
+      ? ` data-more-info="${esc(reading.entityId)}"`
+      : "";
+
+    const label =
+      param === "precipitation"
+        ? (
+            reading?.forecastFallback
+              ? tr(
+                  language,
+                  "precipitation_hour"
+                )
+              : tr(
+                  language,
+                  "precipitation_now"
+                )
+          )
+        : tr(language, param);
+
+    return `
+      <div
+        class="tile overview-tile"
+        style="background:${this._tint(
+          visual.tint
+        )}"
+        ${moreInfo}
+      >
+        <div class="tile-head">
+          <ha-icon
+            icon="${visual.icon || PARAM_META[param]?.icon || "mdi:information-outline"}"
+            style="color:${visual.color}"
+          ></ha-icon>
+          <span>${esc(label)}</span>
+        </div>
+        <div class="tile-value">${esc(
+          this._formatReading(
+            param,
+            reading,
+            language
+          )
+        )}</div>
+        ${this._meta(
+          reading,
+          language,
+          true
+        )}
+      </div>
+    `;
   }
 
   _tile(param, reading, language, compact = false) {
@@ -419,54 +765,138 @@ export class WeatherCentralCard extends HTMLElement {
 
   _overview(language) {
     const weatherState =
-      this._hass?.states?.[this._config.weather_entity];
+      this._hass?.states?.[
+        this._config.weather_entity
+      ];
 
     if (!weatherState) {
       return `<div class="empty">${esc(
         tr(language, "no_data")
-      )}: ${esc(this._config.weather_entity)}</div>`;
+      )}: ${esc(
+        this._config.weather_entity
+      )}</div>`;
     }
 
-    const provider = this._resolver.baseProvider();
-    const temperature = this._resolver.resolve("temperature");
-    const feelsLike = this._resolver.resolve("apparent_temperature");
-    const humidity = this._resolver.resolve("humidity");
-    const clouds = this._resolver.resolve("cloud_coverage");
-    const wind = this._resolver.resolve("wind_speed");
-    const visibility = this._resolver.resolve("visibility");
+    const provider =
+      this._resolver.baseProvider();
+    const temperature =
+      this._resolver.resolve("temperature");
+    const feelsLike =
+      this._resolver.resolve(
+        "apparent_temperature"
+      );
+    const humidity =
+      this._resolver.resolve("humidity");
+    const clouds =
+      this._resolver.resolve(
+        "cloud_coverage"
+      );
+    const dew =
+      this._overviewMetricReading(
+        "dew_point",
+        temperature,
+        humidity
+      );
     const condition = weatherState.state;
+    const tempVisual =
+      overviewTemperatureVisual(
+        temperature?.value
+      );
+
+    const summary =
+      this._overviewSummary(language);
+
+    const updatedRaw =
+      weatherState.last_reported ||
+      weatherState.last_updated ||
+      weatherState.last_changed;
+    const updatedDate =
+      updatedRaw
+        ? new Date(updatedRaw)
+        : null;
+    const updated =
+      updatedDate &&
+      !Number.isNaN(updatedDate.getTime())
+        ? updatedDate.toLocaleTimeString(
+            language === "sv"
+              ? "sv-SE"
+              : "en-GB",
+            {
+              hour: "2-digit",
+              minute: "2-digit",
+            }
+          )
+        : "–";
+
+    const metrics = (
+      Array.isArray(
+        this._config.overview_metrics
+      )
+        ? this._config.overview_metrics
+        : [
+            "humidity",
+            "cloud_coverage",
+            "dew_point",
+            "precipitation",
+          ]
+    ).slice(0, 4);
+
+    const metricReadings = {
+      humidity,
+      cloud_coverage: clouds,
+      dew_point: dew,
+    };
+
+    const metricTiles = metrics
+      .map((param) => {
+        const reading =
+          metricReadings[param] ||
+          this._overviewMetricReading(
+            param,
+            temperature,
+            humidity
+          );
+
+        return this._overviewTile(
+          param,
+          reading,
+          language
+        );
+      })
+      .join("");
 
     return `
-      <div class="top">
-        <div class="heading">
-          <ha-icon
-            class="hero-icon"
-            icon="${iconForCondition(condition)}"
-          ></ha-icon>
-          <div>
-            <div class="title">${esc(
-              tr(language, "subtitle")
-            )}</div>
-            <div class="condition">${esc(
-              tr(language, condition)
-            )}</div>
-          </div>
-        </div>
-        <div class="provider">${esc(provider.label)}</div>
-      </div>
+      <div
+        class="overview-hero"
+        data-more-info="${esc(
+          this._config.weather_entity
+        )}"
+      >
+        <ha-icon
+          class="hero-icon"
+          icon="${iconForCondition(condition)}"
+          style="color:${tempVisual.color}"
+        ></ha-icon>
 
-      <div class="main">
-        <div>
-          <div class="big">${esc(
+        <div class="overview-info">
+          <div class="overview-big">${esc(
             this._formatReading(
               "temperature",
               temperature,
               language
             )
           )}</div>
-          <div class="secondary">
+          <div class="overview-condition">
+            ${esc(tr(language, condition))}
+          </div>
+          <div class="overview-detail">
             ${feelsLike
-              ? `${esc(tr(language, "apparent_temperature"))} ${esc(
+              ? `${esc(
+                  tr(
+                    language,
+                    "apparent_temperature"
+                  )
+                )} ${esc(
                   this._formatReading(
                     "apparent_temperature",
                     feelsLike,
@@ -474,16 +904,67 @@ export class WeatherCentralCard extends HTMLElement {
                   )
                 )}`
               : ""}
+            ${dew
+              ? `<br>${esc(
+                  tr(language, "dew_point")
+                )} ${esc(
+                  this._formatReading(
+                    "dew_point",
+                    dew,
+                    language
+                  )
+                )}`
+              : ""}
+            ${clouds
+              ? ` · ${esc(
+                  tr(
+                    language,
+                    "cloud_coverage"
+                  )
+                )} ${esc(
+                  this._formatReading(
+                    "cloud_coverage",
+                    clouds,
+                    language
+                  )
+                )}`
+              : ""}
           </div>
-          ${this._meta(temperature, language, true)}
+        </div>
+
+        <div class="provider">
+          ${esc(provider.label)}
         </div>
       </div>
 
+      ${summary?.text
+        ? `
+          <div class="overview-summary">
+            ${esc(summary.text)}
+            ${summary.fallbackLevel > 0
+              ? `
+                <div class="meta" style="justify-content:flex-end">
+                  ${this._config.show_freshness
+                    ? `<span class="dot ${summary.freshness?.status || "unknown"}"></span>`
+                    : ""}
+                  <span class="fallback">↳</span>
+                  ${this._config.show_sources
+                    ? esc(summary.source)
+                    : ""}
+                </div>
+              `
+              : ""}
+            <div class="overview-updated">
+              ↻ ${esc(
+                tr(language, "updated")
+              )} ${esc(updated)}
+            </div>
+          </div>
+        `
+        : ""}
+
       <div class="overview-grid">
-        ${this._tile("humidity", humidity, language, true)}
-        ${this._tile("cloud_coverage", clouds, language, true)}
-        ${this._tile("wind_speed", wind, language, true)}
-        ${this._tile("visibility", visibility, language, true)}
+        ${metricTiles}
       </div>
     `;
   }
@@ -1233,7 +1714,25 @@ export class WeatherCentralCard extends HTMLElement {
     else if (view === "diagnostics") body = this._diagnostics(language);
     else body = this._overview(language);
 
+    let cardStyle = "";
+    if (
+      view === "overview" &&
+      this._config.dynamic_backgrounds !== false
+    ) {
+      const temperature =
+        this._resolver.resolve("temperature");
+      const visual =
+        overviewTemperatureVisual(
+          temperature?.value
+        );
+      cardStyle =
+        `background:${tintBackground(
+          visual.tint,
+          "var(--ha-card-background,var(--card-background-color))"
+        )}`;
+    }
+
     this.shadowRoot.innerHTML =
-      `<style>${CSS}</style><ha-card>${body}</ha-card>`;
+      `<style>${CSS}</style><ha-card style="${cardStyle}">${body}</ha-card>`;
   }
 }

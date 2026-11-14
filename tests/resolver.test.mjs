@@ -180,3 +180,25 @@ test("Weather Consensus remains an explicit named source", () => {
   assert.equal(reading.source, "Weather Consensus");
   assert.equal(reading.entityId, "sensor.vaderkonsensus_temperatur");
 });
+
+test("resolver preserves source units for precipitation rate sensors", () => {
+  const hass = baseHass();
+  hass.states["sensor.rain_now"] = state(1.2, "mm/h");
+
+  const resolver = new WeatherValueResolver(hass, {
+    weather_entity: "weather.smhi_local",
+    use_fallbacks: true,
+    parameters: {
+      precipitation: {
+        primary: "sensor.rain_now",
+      },
+    },
+  });
+
+  const reading = resolver.resolve("precipitation");
+
+  assert.ok(reading);
+  assert.equal(reading.value, 1.2);
+  assert.equal(reading.sourceUnit, "mm/h");
+});
+
