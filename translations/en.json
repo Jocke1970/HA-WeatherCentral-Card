@@ -51,5 +51,7 @@
   "snowy-rainy": "Sleet",
   "sunny": "Sunny",
   "windy": "Windy",
-  "windy-variant": "Windy"
+  "windy-variant": "Windy",
+  "data_coverage": "Data coverage",
+  "missing": "Missing"
 }
