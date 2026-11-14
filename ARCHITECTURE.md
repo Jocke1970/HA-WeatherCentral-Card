@@ -49,8 +49,6 @@ Profiles define provider detection, richer entities, capabilities and freshness 
 
 ## Views
 
-Initial dev views: `overview`, `wind`, `pressure`, `diagnostics`.
-
-Planned v1 views: `precipitation`, `temperature`, `forecast`, `sky`, `risks`, `alerts`, `air_quality`, `comparison`.
+Implemented views: `overview`, `temperature`, `precipitation`, `forecast`, `wind`, `pressure`, `sky`, `risks`, `alerts`, `air_quality`, `comparison`, `diagnostics`.
 
 Cycling weather stays outside Weather Central Card because it consumes weather data rather than supplying weather data.

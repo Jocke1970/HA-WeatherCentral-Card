@@ -2,8 +2,15 @@ import { PARAM_META, PARAMS, formatValue, windDirection } from "./core.js";
 import { languageFor, tr } from "./i18n.js";
 import { WeatherValueResolver } from "./resolver.js";
 import { ForecastSeriesManager } from "./forecast.js";
+import {
+  getSkyData,
+  getRiskData,
+  getAlertsData,
+  getAirQualityData,
+  getComparisonData,
+} from "./extras.js";
 
-const VERSION = "2026.11.0b2";
+const VERSION = "2026.11.0b3";
 
 const ICONS = {
   "clear-night": "mdi:weather-night",
@@ -64,8 +71,8 @@ const CSS = `
   .hour-time{font-size:10px;color:var(--secondary-text-color)}
   .hour-main{font-size:15px;font-weight:650;margin-top:4px;white-space:nowrap}
   .hour-sub{font-size:9.5px;color:var(--secondary-text-color);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .forecast-days{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
-  .day{padding:10px 5px;border-radius:12px;background:var(--secondary-background-color);text-align:center;min-width:0}
+  .forecast-days{display:flex;flex-wrap:wrap;justify-content:center;gap:7px}
+  .day{flex:0 1 calc(25% - 6px);box-sizing:border-box;padding:10px 5px;border-radius:12px;background:var(--secondary-background-color);text-align:center;min-width:0}
   .day ha-icon{--mdc-icon-size:29px;color:var(--primary-color);margin:7px 0 3px}
   .day-name{font-size:12px;font-weight:650}
   .day-date{font-size:9.5px;color:var(--secondary-text-color);margin-top:1px}
@@ -73,7 +80,35 @@ const CSS = `
   .day-low{font-size:12px;color:var(--secondary-text-color);font-weight:400;margin-left:3px}
   .series-meta{display:flex;align-items:center;justify-content:flex-end;gap:5px;font-size:9.5px;color:var(--secondary-text-color);margin-top:9px}
   .temp-chart{width:100%;height:auto;display:block;overflow:visible;margin-top:4px}
-  @media(max-width:420px){ha-card{padding:13px}.big{font-size:34px}.hero-icon{--mdc-icon-size:46px}}
+  .extra-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .extra-tile{padding:12px;border-radius:12px;background:var(--secondary-background-color);min-width:0}
+  .extra-title{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--secondary-text-color)}
+  .extra-title ha-icon{--mdc-icon-size:20px;color:var(--primary-color)}
+  .extra-value{font-size:20px;font-weight:650;margin-top:6px}
+  .extra-sub{font-size:10px;color:var(--secondary-text-color);margin-top:4px;line-height:1.35}
+  .risk-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .risk-card{padding:12px;border-radius:12px;background:var(--secondary-background-color);min-width:0}
+  .risk-icon{--mdc-icon-size:25px;margin-bottom:7px}
+  .risk-name{font-size:11px;color:var(--secondary-text-color)}
+  .risk-state{font-size:17px;font-weight:650;margin-top:4px}
+  .alert-list{display:grid;gap:8px}
+  .alert-item{display:grid;grid-template-columns:34px minmax(0,1fr);gap:9px;padding:11px;border-radius:12px;background:var(--secondary-background-color);border-left:5px solid var(--divider-color)}
+  .alert-item ha-icon{--mdc-icon-size:25px;margin-top:2px}
+  .alert-title{font-size:13px;font-weight:650;line-height:1.25}
+  .alert-sub{font-size:10px;color:var(--secondary-text-color);line-height:1.35;margin-top:4px}
+  .aqi-hero{display:grid;grid-template-columns:105px minmax(0,1fr);gap:14px;align-items:center;padding:14px;border-radius:12px;background:var(--secondary-background-color)}
+  .aqi-number{font-size:38px;font-weight:700;text-align:center}
+  .pollutants{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:9px}
+  .pollutant{padding:10px 4px;border-radius:11px;background:var(--secondary-background-color);text-align:center}
+  .pollutant strong{display:block;font-size:15px;margin-top:4px}
+  .comparison{width:100%;border-collapse:collapse;font-size:11px}
+  .comparison th,.comparison td{padding:7px 5px;border-top:1px solid var(--divider-color);text-align:right;white-space:nowrap}
+  .comparison th:first-child,.comparison td:first-child{text-align:left}
+  .comparison thead th{border-top:0;color:var(--secondary-text-color);font-weight:600}
+  .consensus-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+  .consensus-chip{padding:7px 9px;border-radius:10px;background:var(--secondary-background-color);font-size:11px}
+  .pressure-main .big{font-size:34px}
+  @media(max-width:420px){ha-card{padding:13px}.big{font-size:34px}.hero-icon{--mdc-icon-size:46px}.day{flex-basis:calc(50% - 5px)}.risk-grid{grid-template-columns:1fr}.pollutants{grid-template-columns:repeat(2,minmax(0,1fr))}}
 `;
 
 function esc(value) {
@@ -193,7 +228,7 @@ export class WeatherCentralCard extends HTMLElement {
 
   _updateForecastSubscriptions() {
     const view = this._config.view || "overview";
-    if (["temperature", "precipitation", "pressure"].includes(view)) {
+    if (["temperature", "precipitation", "pressure", "risks"].includes(view)) {
       this._forecast.ensure("hourly");
     }
     if (view === "forecast") {
@@ -389,10 +424,10 @@ export class WeatherCentralCard extends HTMLElement {
     if (values.length < 2) return `<div class="empty">${esc(tr(language, "no_data"))}</div>`;
 
     const width = 620;
-    const height = 178;
+    const height = 190;
     const left = 28;
     const right = 28;
-    const top = 28;
+    const top = 38;
     const bottom = 40;
     const temps = values.map((entry) => entry.temperature);
     const min = Math.min(...temps);
@@ -574,7 +609,7 @@ export class WeatherCentralCard extends HTMLElement {
       </div>
 
       ${pressure
-        ? `<div class="main"><div>
+        ? `<div class="main pressure-main"><div>
             <div class="big">${esc(
               this._formatReading("pressure", pressure, language)
             )}</div>
@@ -590,6 +625,415 @@ export class WeatherCentralCard extends HTMLElement {
         <span></span>
         <span>${VERSION}</span>
       </div>
+    `;
+  }
+
+  _extraMeta(item, language) {
+    if (!item) return "";
+    const dot = this._config.show_freshness
+      ? `<span class="dot ${item.freshness?.status || "unknown"}"></span>`
+      : "";
+    const source = this._config.show_sources
+      ? esc(item.source || "")
+      : "";
+    if (!dot && !source) return "";
+    return `<div class="meta">${dot}${source}</div>`;
+  }
+
+  _sky(language) {
+    const data = getSkyData(this._hass, this._config);
+    const sunUp = data.sun?.state === "above_horizon";
+    const eventRaw = sunUp
+      ? data.sun?.nextSetting
+      : data.sun?.nextRising;
+    const event = eventRaw
+      ? new Date(eventRaw).toLocaleTimeString(
+          language === "sv" ? "sv-SE" : "en-GB",
+          { hour: "2-digit", minute: "2-digit" }
+        )
+      : "–";
+
+    const uv = data.uv?.value;
+    const uvLabel = !Number.isFinite(uv)
+      ? tr(language, "missing")
+      : uv < 3
+        ? tr(language, "uv_low")
+        : uv < 6
+          ? tr(language, "uv_moderate")
+          : uv < 8
+            ? tr(language, "uv_high")
+            : uv < 11
+              ? tr(language, "uv_very_high")
+              : tr(language, "uv_extreme");
+
+    const aurora = data.aurora?.value;
+    const auroraLabel = !Number.isFinite(aurora)
+      ? tr(language, "missing")
+      : aurora < 5
+        ? tr(language, "aurora_very_low")
+        : aurora < 20
+          ? tr(language, "aurora_low")
+          : aurora < 40
+            ? tr(language, "aurora_possible")
+            : aurora < 70
+              ? tr(language, "aurora_good")
+              : tr(language, "aurora_very_good");
+
+    const moonMap = {
+      new_moon: ["mdi:moon-new", "moon_new"],
+      waxing_crescent: ["mdi:moon-waxing-crescent", "moon_waxing_crescent"],
+      first_quarter: ["mdi:moon-first-quarter", "moon_first_quarter"],
+      waxing_gibbous: ["mdi:moon-waxing-gibbous", "moon_waxing_gibbous"],
+      full_moon: ["mdi:moon-full", "moon_full"],
+      waning_gibbous: ["mdi:moon-waning-gibbous", "moon_waning_gibbous"],
+      last_quarter: ["mdi:moon-last-quarter", "moon_last_quarter"],
+      waning_crescent: ["mdi:moon-waning-crescent", "moon_waning_crescent"],
+    };
+    const moonInfo =
+      moonMap[data.moon?.phase] ||
+      ["mdi:moon-waning-crescent", "missing"];
+
+    return `
+      <div class="section-title">
+        <ha-icon icon="mdi:weather-sunset"></ha-icon>
+        ${esc(tr(language, "view_sky"))}
+      </div>
+
+      <div class="extra-grid">
+        <div class="extra-tile"${data.sun?.entityId ? ` data-more-info="${esc(data.sun.entityId)}"` : ""}>
+          <div class="extra-title"><ha-icon icon="${sunUp ? "mdi:white-balance-sunny" : "mdi:weather-night"}"></ha-icon>${esc(tr(language, "sun"))}</div>
+          <div class="extra-value">${esc(sunUp ? tr(language, "sun_up") : tr(language, "sun_down"))}</div>
+          <div class="extra-sub">${esc(sunUp ? tr(language, "sunset") : tr(language, "sunrise"))}: ${esc(event)}${Number.isFinite(data.sun?.elevation) ? ` · ${data.sun.elevation.toFixed(1)}°` : ""}</div>
+          ${this._extraMeta(data.sun, language)}
+        </div>
+
+        <div class="extra-tile"${data.moon?.entityId ? ` data-more-info="${esc(data.moon.entityId)}"` : ""}>
+          <div class="extra-title"><ha-icon icon="${moonInfo[0]}"></ha-icon>${esc(tr(language, "moon"))}</div>
+          <div class="extra-value">${esc(tr(language, moonInfo[1]))}</div>
+          <div class="extra-sub">${esc(tr(language, "moon_phase"))}</div>
+          ${this._extraMeta(data.moon, language)}
+        </div>
+
+        <div class="extra-tile"${data.uv?.entityId ? ` data-more-info="${esc(data.uv.entityId)}"` : ""}>
+          <div class="extra-title"><ha-icon icon="mdi:weather-sunny-alert"></ha-icon>UV-index</div>
+          <div class="extra-value">${Number.isFinite(uv) ? esc(formatValue(uv, 1)) : "–"}</div>
+          <div class="extra-sub">${esc(uvLabel)}</div>
+          ${this._extraMeta(data.uv, language)}
+        </div>
+
+        <div class="extra-tile"${data.aurora?.entityId ? ` data-more-info="${esc(data.aurora.entityId)}"` : ""}>
+          <div class="extra-title"><ha-icon icon="mdi:aurora"></ha-icon>${esc(tr(language, "aurora"))}</div>
+          <div class="extra-value">${Number.isFinite(aurora) ? `${Math.round(aurora)} %` : "–"}</div>
+          <div class="extra-sub">${esc(auroraLabel)}</div>
+          ${this._extraMeta(data.aurora, language)}
+        </div>
+      </div>
+    `;
+  }
+
+  _risks(language) {
+    const hourly = this._hourlySeries();
+    const data = getRiskData(
+      this._hass,
+      this._config,
+      hourly
+    );
+
+    const frostLabels = [
+      ["mdi:shield-check-outline", "risk_none"],
+      ["mdi:snowflake-thermometer", "risk_low"],
+      ["mdi:snowflake-alert", "risk_elevated"],
+      ["mdi:car-brake-alert", "risk_high"],
+    ];
+    const frostInfo =
+      frostLabels[data.frost.level] || frostLabels[0];
+
+    const frostKnown = data.frost.available === true;
+    const fireKnown = data.fire.available === true;
+    const thunderKnown = data.thunder.available === true;
+
+    const frostText = !frostKnown
+      ? tr(language, "missing")
+      : tr(language, frostInfo[1]);
+
+    const fireText = !fireKnown
+      ? tr(language, "missing")
+      : data.fire.active
+        ? tr(language, "risk_relevant")
+        : tr(language, "risk_not_relevant");
+
+    const thunderText = !thunderKnown
+      ? tr(language, "missing")
+      : data.thunder.active
+        ? tr(language, "risk_relevant")
+        : tr(language, "risk_not_relevant");
+
+    return `
+      <div class="section-title">
+        <ha-icon icon="mdi:shield-alert-outline"></ha-icon>
+        ${esc(tr(language, "view_risks"))}
+      </div>
+      <div class="risk-grid">
+        <div class="risk-card"${data.frost.entityId ? ` data-more-info="${esc(data.frost.entityId)}"` : ""}>
+          <ha-icon class="risk-icon" icon="${frostInfo[0]}"></ha-icon>
+          <div class="risk-name">${esc(tr(language, "frost_ice"))}</div>
+          <div class="risk-state">${esc(frostText)}</div>
+          <div class="extra-sub">${Number.isFinite(data.frost.minTemp) ? `${esc(tr(language, "minimum"))}: ${formatValue(data.frost.minTemp, 1)} °C` : ""}</div>
+          ${this._extraMeta(data.frost, language)}
+        </div>
+
+        <div class="risk-card"${data.thunder.entityId ? ` data-more-info="${esc(data.thunder.entityId)}"` : ""}>
+          <ha-icon class="risk-icon" icon="mdi:weather-lightning"></ha-icon>
+          <div class="risk-name">${esc(tr(language, "thunder"))}</div>
+          <div class="risk-state">${esc(thunderText)}</div>
+          <div class="extra-sub">${Number.isFinite(data.thunder.value) ? `${Math.round(data.thunder.value)} %` : ""}</div>
+          ${this._extraMeta(data.thunder, language)}
+        </div>
+
+        <div class="risk-card"${data.fire.entityId ? ` data-more-info="${esc(data.fire.entityId)}"` : ""}>
+          <ha-icon class="risk-icon" icon="mdi:fire-alert"></ha-icon>
+          <div class="risk-name">${esc(tr(language, "fire_risk"))}</div>
+          <div class="risk-state">${esc(fireText)}</div>
+          <div class="extra-sub">${Number.isFinite(data.fire.index) ? `${esc(tr(language, "index"))}: ${formatValue(data.fire.index, 0)}` : ""}</div>
+          ${this._extraMeta(data.fire, language)}
+        </div>
+      </div>
+    `;
+  }
+
+  _alerts(language) {
+    const data = getAlertsData(
+      this._hass,
+      this._config
+    );
+
+    const severityInfo = (item) => {
+      const level = String(
+        item?.code ||
+        item?.severity ||
+        item?.level ||
+        ""
+      ).toUpperCase();
+
+      if (["RED", "RÖD"].includes(level)) {
+        return ["#e53935", "mdi:alert-octagon", "Röd"];
+      }
+      if (level === "ORANGE") {
+        return ["#fb8c00", "mdi:alert", "Orange"];
+      }
+      if (["YELLOW", "GUL"].includes(level)) {
+        return ["#ffb300", "mdi:alert-outline", "Gul"];
+      }
+      return ["#78909c", "mdi:information-outline", tr(language, "message")];
+    };
+
+    const eventIcons = {
+      THUNDER: "mdi:weather-lightning",
+      WIND: "mdi:weather-windy",
+      SNOW: "mdi:weather-snowy-heavy",
+      BLACK_ICE: "mdi:car-brake-alert",
+      RAIN: "mdi:weather-pouring",
+      FIRE: "mdi:fire-alert",
+      HIGH_TEMPERATURES: "mdi:thermometer-high",
+      FLOODING: "mdi:home-flood",
+    };
+
+    const cards = data.messages
+      .slice(0, 3)
+      .map((item) => {
+        const severity = severityInfo(item);
+        const title =
+          item.event_description_sv ||
+          item.descr ||
+          item.event_sv ||
+          item.event ||
+          tr(language, "smhi_message");
+        const area =
+          item.area_name_sv ||
+          item.area ||
+          "";
+        const icon =
+          eventIcons[item.event_code] ||
+          severity[1];
+        const descriptions =
+          Array.isArray(item.description_items)
+            ? item.description_items
+            : [];
+        const preferred =
+          descriptions.find((x) => x.code === "HAPPENS") ||
+          descriptions.find((x) => x.code === "INCIDENT");
+        const description =
+          preferred?.text_sv ||
+          preferred?.text ||
+          "";
+
+        return `
+          <div class="alert-item" style="border-left-color:${severity[0]}">
+            <ha-icon icon="${icon}" style="color:${severity[0]}"></ha-icon>
+            <div>
+              <div class="alert-title">${esc(title)}</div>
+              <div class="alert-sub"><b style="color:${severity[0]}">${esc(severity[2])}</b>${area ? ` · ${esc(area)}` : ""}</div>
+              ${description ? `<div class="alert-sub">${esc(description)}</div>` : ""}
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    const empty = data.available
+      ? `
+          <div class="alert-item" style="border-left-color:var(--success-color,#43a047)">
+            <ha-icon icon="mdi:check-circle-outline" style="color:var(--success-color,#43a047)"></ha-icon>
+            <div><div class="alert-title">${esc(tr(language, "no_active_alerts"))}</div></div>
+          </div>
+        `
+      : `
+          <div class="alert-item">
+            <ha-icon icon="mdi:help-circle-outline"></ha-icon>
+            <div><div class="alert-title">${esc(tr(language, "missing"))}</div></div>
+          </div>
+        `;
+
+    return `
+      <div class="section-title">
+        <ha-icon icon="mdi:hazard-lights"></ha-icon>
+        ${esc(tr(language, "view_alerts"))}
+      </div>
+      <div class="forecast-sub" style="margin-bottom:10px">
+        ${data.warnings} ${esc(tr(language, "warnings"))} ·
+        ${data.messagesCount} ${esc(tr(language, "messages"))}
+        ${data.severity ? ` · ${esc(data.severity)}` : ""}
+      </div>
+      <div class="alert-list">
+        ${cards || empty}
+      </div>
+      ${this._extraMeta(data, language)}
+    `;
+  }
+
+  _airQuality(language) {
+    const data = getAirQualityData(
+      this._hass,
+      this._config
+    );
+
+    const aqi = data.aqi;
+    const info = !Number.isFinite(aqi)
+      ? [tr(language, "missing"), "#78909c"]
+      : aqi <= 50
+        ? [tr(language, "aqi_good"), "#43a047"]
+        : aqi <= 100
+          ? [tr(language, "aqi_moderate"), "#f9a825"]
+          : aqi <= 150
+            ? [tr(language, "aqi_sensitive"), "#fb8c00"]
+            : aqi <= 200
+              ? [tr(language, "aqi_unhealthy"), "#e53935"]
+              : aqi <= 300
+                ? [tr(language, "aqi_very_unhealthy"), "#8e24aa"]
+                : [tr(language, "aqi_hazardous"), "#7f1d1d"];
+
+    const pollutantName = (value) => {
+      const map = {
+        o3: "O₃",
+        no2: "NO₂",
+        so2: "SO₂",
+        co: "CO",
+        pm10: "PM10",
+        pm25: "PM2.5",
+        neph: "NEPH",
+      };
+      const key = String(value || "")
+        .toLowerCase()
+        .trim();
+      return map[key] || value || "–";
+    };
+
+    const pollutant = (label, value) => `
+      <div class="pollutant">
+        <span class="extra-sub">${label}</span>
+        <strong>${Number.isFinite(value) ? esc(formatValue(value, Number.isInteger(value) ? 0 : 1)) : "–"}</strong>
+      </div>
+    `;
+
+    return `
+      <div class="section-title">
+        <ha-icon icon="mdi:air-filter"></ha-icon>
+        ${esc(tr(language, "view_air_quality"))}
+      </div>
+      <div class="aqi-hero"${data.entities.aqi ? ` data-more-info="${esc(data.entities.aqi)}"` : ""}>
+        <div>
+          <div class="aqi-number" style="color:${info[1]}">${Number.isFinite(aqi) ? Math.round(aqi) : "–"}</div>
+          <div class="extra-sub" style="text-align:center">AQI</div>
+        </div>
+        <div>
+          <div class="extra-value" style="color:${info[1]}">${esc(info[0])}</div>
+          <div class="extra-sub">${esc(tr(language, "dominant_pollutant"))}</div>
+          <div style="font-size:15px;font-weight:650;margin-top:3px">${esc(pollutantName(data.dominant))}</div>
+        </div>
+      </div>
+      <div class="pollutants">
+        ${pollutant("O₃", data.o3)}
+        ${pollutant("NO₂", data.no2)}
+        ${pollutant("PM2.5", data.pm25)}
+        ${pollutant("PM10", data.pm10)}
+      </div>
+      ${this._extraMeta(data, language)}
+    `;
+  }
+
+  _comparison(language) {
+    const data = getComparisonData(
+      this._hass,
+      this._config
+    );
+
+    const consensus = [];
+    if (data.consensus.temperature) {
+      consensus.push(
+        `<div class="consensus-chip"><b>${esc(tr(language, "consensus_temperature"))}</b> ${formatValue(data.consensus.temperature.value, 1)} °C</div>`
+      );
+    }
+    if (data.consensus.wind) {
+      consensus.push(
+        `<div class="consensus-chip"><b>${esc(tr(language, "consensus_wind"))}</b> ${formatValue(data.consensus.wind.value, 1)} m/s</div>`
+      );
+    }
+
+    const f = (value, decimals = 1) =>
+      Number.isFinite(value)
+        ? formatValue(value, decimals)
+        : "–";
+
+    const rows = data.providers.map((provider) => `
+      <tr data-more-info="${esc(provider.entityId)}">
+        <td><span class="dot ${provider.freshness?.status || "unknown"}"></span> ${esc(provider.source)}</td>
+        <td>${f(provider.values.temperature, 1)}°</td>
+        <td>${f(provider.values.wind_speed, 1)}</td>
+        <td>${f(provider.values.pressure, 0)}</td>
+        <td>${f(provider.values.cloud_coverage, 0)}%</td>
+      </tr>
+    `).join("");
+
+    return `
+      <div class="section-title">
+        <ha-icon icon="mdi:compare-horizontal"></ha-icon>
+        ${esc(tr(language, "view_comparison"))}
+      </div>
+      ${consensus.length ? `<div class="consensus-row">${consensus.join("")}</div>` : ""}
+      <table class="comparison">
+        <thead>
+          <tr>
+            <th>${esc(tr(language, "source"))}</th>
+            <th>°C</th>
+            <th>m/s</th>
+            <th>mbar</th>
+            <th>% ☁</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows || `<tr><td colspan="5">${esc(tr(language, "no_data"))}</td></tr>`}
+        </tbody>
+      </table>
     `;
   }
 
@@ -670,6 +1114,11 @@ export class WeatherCentralCard extends HTMLElement {
     else if (view === "forecast") body = this._dailyForecast(language);
     else if (view === "wind") body = this._wind(language);
     else if (view === "pressure") body = this._pressure(language);
+    else if (view === "sky") body = this._sky(language);
+    else if (view === "risks") body = this._risks(language);
+    else if (view === "alerts") body = this._alerts(language);
+    else if (view === "air_quality") body = this._airQuality(language);
+    else if (view === "comparison") body = this._comparison(language);
     else if (view === "diagnostics") body = this._diagnostics(language);
     else body = this._overview(language);
 

@@ -72,3 +72,8 @@ Planned later beta views include Sky, Risks, Alerts, Air quality and Provider co
 - `main` — stable releases only
 
 See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the locked v1 design contract and [`CHANGELOG.md`](CHANGELOG.md) for release notes.
+
+
+## External modules
+
+Weather Central Card can auto-detect the entities used by the original Weather Central dashboard for Sun/Moon, OpenUV, aurora, SMHI alerts and Stockholm Södermalm air quality. Every external source can be overridden from the visual editor. Missing data remains unknown and is never converted to a safe/zero state.
