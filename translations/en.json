@@ -52,5 +52,6 @@
   "sunny": "Sunny",
   "windy": "Windy",
   "windy-variant": "Windy",
-  "data_coverage": "Data coverage"
+  "data_coverage": "Data coverage",
+  "missing": "Missing"
 }
