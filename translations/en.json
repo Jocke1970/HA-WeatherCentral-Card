@@ -128,5 +128,13 @@
   "editor_no2": "Nitrogen dioxide",
   "editor_pm25": "PM2.5",
   "editor_pm10": "PM10",
-  "editor_dynamic_backgrounds": "Dynamic background"
+  "editor_dynamic_backgrounds": "Dynamic background",
+  "calculated": "Calculated",
+  "precipitation_hour": "Precipitation 1 h",
+  "precipitation_now": "Rain now",
+  "updated": "Updated",
+  "editor_overview": "Overview",
+  "editor_overview_hint": "Choose the four detail tiles shown in the standard card. Dew point can be calculated from temperature and humidity when no direct source exists.",
+  "editor_overview_metric": "Detail tile",
+  "editor_summary_entity": "Summary (optional entity)"
 }
