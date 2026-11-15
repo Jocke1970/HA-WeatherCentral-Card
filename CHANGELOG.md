@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026.11.0b8
+
+Wind & air layout polish.
+
+- Changed Wind & air to a compact auto-fitting grid sized for three tiles per row at normal card widths.
+- Centered icons, labels, values and freshness/source metadata.
+- Preserved the six-value order: Wind, Wind gust, Direction / Pressure, Visibility, Humidity.
+- Grid naturally falls back to fewer columns on narrow cards without fixed breakpoints.
+- More info actions remain attached to each resolved entity.
+
 ## 2026.11.0b7
 
 Rich overview-card redesign.
