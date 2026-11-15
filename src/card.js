@@ -10,7 +10,7 @@ import {
   getComparisonData,
 } from "./extras.js";
 
-const VERSION = "2026.11.0b7";
+const VERSION = "2026.11.0b8";
 
 const ICONS = {
   "clear-night": "mdi:weather-night",
@@ -50,6 +50,12 @@ const CSS = `
   .big{font-size:38px;font-weight:650;line-height:1}
   .secondary{font-size:12px;color:var(--secondary-text-color);margin-top:5px}
   .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .wind-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:7px}
+  .wind-tile{padding:9px 6px 8px;text-align:center;border-radius:11px}
+  .wind-tile .tile-head{justify-content:center;gap:5px;font-size:10.5px}
+  .wind-tile .tile-head ha-icon{--mdc-icon-size:19px}
+  .wind-tile .tile-value{font-size:16px;margin-top:4px}
+  .wind-tile .meta{justify-content:center;margin-top:4px}
   .overview-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px}
   .tile{padding:11px;border-radius:12px;background:var(--secondary-background-color);min-width:0}
   .overview-tile{padding:9px 5px 8px;border-radius:11px;text-align:center}
@@ -1078,6 +1084,36 @@ export class WeatherCentralCard extends HTMLElement {
       + `<div class="forecast-days">${cells}</div>`
       + this._seriesMeta(series, language);
   }
+  _windTile(param, reading, language) {
+    const meta = PARAM_META[param] || {};
+    const moreInfo = reading?.entityId
+      ? ` data-more-info="${esc(reading.entityId)}"`
+      : "";
+
+    return `
+      <div class="tile wind-tile"${moreInfo}>
+        <div class="tile-head">
+          <ha-icon
+            icon="${meta.icon || "mdi:information-outline"}"
+          ></ha-icon>
+          <span>${esc(tr(language, param))}</span>
+        </div>
+        <div class="tile-value">${esc(
+          this._formatReading(
+            param,
+            reading,
+            language
+          )
+        )}</div>
+        ${this._meta(
+          reading,
+          language,
+          true
+        )}
+      </div>
+    `;
+  }
+
   _wind(language) {
     const wind = this._resolver.resolve("wind_speed");
     const gust = this._resolver.resolve("wind_gust");
@@ -1091,13 +1127,13 @@ export class WeatherCentralCard extends HTMLElement {
         <ha-icon icon="mdi:weather-windy"></ha-icon>
         ${esc(tr(language, "view_wind"))}
       </div>
-      <div class="grid">
-        ${this._tile("wind_speed", wind, language)}
-        ${this._tile("wind_gust", gust, language)}
-        ${this._tile("wind_bearing", bearing, language)}
-        ${this._tile("pressure", pressure, language)}
-        ${this._tile("visibility", visibility, language)}
-        ${this._tile("humidity", humidity, language)}
+      <div class="wind-grid">
+        ${this._windTile("wind_speed", wind, language)}
+        ${this._windTile("wind_gust", gust, language)}
+        ${this._windTile("wind_bearing", bearing, language)}
+        ${this._windTile("pressure", pressure, language)}
+        ${this._windTile("visibility", visibility, language)}
+        ${this._windTile("humidity", humidity, language)}
       </div>
     `;
   }
