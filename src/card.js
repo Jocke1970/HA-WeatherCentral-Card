@@ -10,7 +10,7 @@ import {
   getComparisonData,
 } from "./extras.js";
 
-const VERSION = "2026.11.0b9";
+const VERSION = "2026.11.0b10";
 
 const ICONS = {
   "clear-night": "mdi:weather-night",
@@ -56,7 +56,7 @@ const CSS = `
   .wind-tile .tile-head ha-icon{--mdc-icon-size:19px}
   .wind-tile .tile-value{font-size:16px;margin-top:4px}
   .wind-tile .meta{justify-content:center;margin-top:4px}
-  .overview-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px}
+  .overview-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
   .tile{padding:11px;border-radius:12px;background:var(--secondary-background-color);min-width:0}
   .overview-tile{padding:9px 5px 8px;border-radius:11px;text-align:center}
   .overview-tile .tile-head{justify-content:center;gap:5px;font-size:10.5px;font-weight:600;color:var(--primary-text-color)}
@@ -88,6 +88,7 @@ const CSS = `
   .hours{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
   .hour{padding:8px 3px;border-radius:10px;background:var(--secondary-background-color);text-align:center;min-width:0}
   .hour-time{font-size:10px;color:var(--secondary-text-color)}
+  .hour-icon{display:block;--mdc-icon-size:17px;margin:4px auto 0;color:var(--primary-color)}
   .hour-main{font-size:15px;font-weight:650;margin-top:4px;white-space:nowrap}
   .hour-sub{font-size:9.5px;color:var(--secondary-text-color);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .forecast-days{display:flex;flex-wrap:wrap;justify-content:center;gap:7px}
@@ -144,7 +145,7 @@ const CSS = `
   .consensus-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
   .consensus-chip{padding:7px 9px;border-radius:10px;background:var(--secondary-background-color);font-size:11px}
   .pressure-main .big{font-size:34px}
-  @media(max-width:420px){ha-card{padding:13px}.big{font-size:34px}.hero-icon{--mdc-icon-size:58px}.overview-hero{grid-template-columns:64px minmax(0,1fr) auto;gap:9px}.overview-big{font-size:28px}.day{flex-basis:calc(50% - 5px)}.risk-grid{grid-template-columns:1fr}.risk-timeline{grid-template-columns:repeat(4,minmax(0,1fr))}.risk-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.pollutants{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(max-width:420px){ha-card{padding:13px}.big{font-size:34px}.hero-icon{--mdc-icon-size:58px}.overview-hero{grid-template-columns:64px minmax(0,1fr) auto;gap:9px}.overview-big{font-size:28px}.overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.day{flex-basis:calc(50% - 5px)}.risk-grid{grid-template-columns:1fr}.risk-timeline{grid-template-columns:repeat(4,minmax(0,1fr))}.risk-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.pollutants{grid-template-columns:repeat(2,minmax(0,1fr))}}
 `;
 
 function esc(value) {
@@ -163,6 +164,67 @@ function freshnessClass(reading) {
 function iconForCondition(condition) {
   return ICONS[condition] || "mdi:weather-partly-cloudy";
 }
+
+function precipitationVisual(condition) {
+  const key = String(condition || "").toLowerCase();
+
+  if (key === "snowy") {
+    return {
+      icon: "mdi:weather-snowy",
+      color: "#0288d1",
+      tint: "rgba(3,169,244,0.10)",
+    };
+  }
+
+  if (key === "snowy-rainy") {
+    return {
+      icon: "mdi:weather-snowy-rainy",
+      color: "#039be5",
+      tint: "rgba(0,172,193,0.10)",
+    };
+  }
+
+  if (key === "hail") {
+    return {
+      icon: "mdi:weather-hail",
+      color: "#0277bd",
+      tint: "rgba(2,119,189,0.11)",
+    };
+  }
+
+  if (key === "lightning-rainy" || key === "lightning") {
+    return {
+      icon: key === "lightning-rainy"
+        ? "mdi:weather-lightning-rainy"
+        : "mdi:weather-lightning",
+      color: "#7e57c2",
+      tint: "rgba(126,87,194,0.10)",
+    };
+  }
+
+  if (key === "pouring") {
+    return {
+      icon: "mdi:weather-pouring",
+      color: "#1565c0",
+      tint: "rgba(21,101,192,0.11)",
+    };
+  }
+
+  if (key === "rainy") {
+    return {
+      icon: "mdi:weather-rainy",
+      color: "#0288d1",
+      tint: "rgba(2,136,209,0.09)",
+    };
+  }
+
+  return {
+    icon: null,
+    color: "var(--secondary-text-color)",
+    tint: "rgba(120,144,156,0.03)",
+  };
+}
+
 
 function tintBackground(tint, base = "var(--secondary-background-color)") {
   return `linear-gradient(${tint}, ${tint}), ${base}`;
@@ -1067,10 +1129,39 @@ export class WeatherCentralCard extends HTMLElement {
 
     const cells = values.map((entry) => {
       const d = new Date(entry.datetime);
-      const time = d.toLocaleTimeString(language === "sv" ? "sv-SE" : "en-GB", { hour: "2-digit", minute: "2-digit" });
-      const probability = Number.isFinite(entry.precipitation_probability) ? `${Math.round(entry.precipitation_probability)} %` : "–";
-      const amount = Number.isFinite(entry.precipitation) ? `${formatValue(entry.precipitation, 1)} mm` : "–";
-      return `<div class="hour"><div class="hour-time">${esc(time)}</div><div class="hour-main">${esc(probability)}</div><div class="hour-sub">${esc(amount)}</div></div>`;
+      const time = d.toLocaleTimeString(
+        language === "sv" ? "sv-SE" : "en-GB",
+        { hour: "2-digit", minute: "2-digit" }
+      );
+      const probability = Number.isFinite(
+        entry.precipitation_probability
+      )
+        ? `${Math.round(entry.precipitation_probability)} %`
+        : "–";
+      const amount = Number.isFinite(entry.precipitation)
+        ? `${formatValue(entry.precipitation, 1)} mm`
+        : "–";
+      const visual = precipitationVisual(entry.condition);
+      const icon = visual.icon
+        ? `<ha-icon
+            class="hour-icon"
+            icon="${visual.icon}"
+            title="${esc(tr(language, entry.condition))}"
+            style="color:${visual.color}"
+          ></ha-icon>`
+        : "";
+
+      return `
+        <div
+          class="hour"
+          style="background:${this._tint(visual.tint)}"
+        >
+          <div class="hour-time">${esc(time)}</div>
+          ${icon}
+          <div class="hour-main">${esc(probability)}</div>
+          <div class="hour-sub">${esc(amount)}</div>
+        </div>
+      `;
     }).join("");
 
     return `<div class="forecast-head"><div class="section-title" style="margin:0"><ha-icon icon="mdi:weather-rainy"></ha-icon>${esc(tr(language, "view_precipitation"))}</div><div class="forecast-sub">${esc(tr(language, "next_12_hours"))}</div></div>`
