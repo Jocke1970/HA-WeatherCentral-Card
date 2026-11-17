@@ -10,7 +10,7 @@ import {
   getComparisonData,
 } from "./extras.js";
 
-const VERSION = "2026.11.0b10";
+const VERSION = "2026.11.0b11";
 
 const ICONS = {
   "clear-night": "mdi:weather-night",
@@ -163,6 +163,39 @@ function freshnessClass(reading) {
 
 function iconForCondition(condition) {
   return ICONS[condition] || "mdi:weather-partly-cloudy";
+}
+
+function precipitationHeaderVisual(entries) {
+  const candidates = (entries || [])
+    .map((entry, index) => ({
+      entry,
+      index,
+      visual: precipitationVisual(entry.condition),
+      probability: Number.isFinite(
+        entry.precipitation_probability
+      )
+        ? entry.precipitation_probability
+        : 0,
+      amount: Number.isFinite(entry.precipitation)
+        ? entry.precipitation
+        : 0,
+    }))
+    .filter((item) => item.visual.icon)
+    .sort((a, b) => {
+      if (b.probability !== a.probability) {
+        return b.probability - a.probability;
+      }
+      if (b.amount !== a.amount) {
+        return b.amount - a.amount;
+      }
+      return a.index - b.index;
+    });
+
+  return candidates[0]?.visual || {
+    icon: "mdi:weather-rainy",
+    color: "var(--primary-color)",
+    tint: "rgba(120,144,156,0.03)",
+  };
 }
 
 function precipitationVisual(condition) {
@@ -1142,14 +1175,6 @@ export class WeatherCentralCard extends HTMLElement {
         ? `${formatValue(entry.precipitation, 1)} mm`
         : "–";
       const visual = precipitationVisual(entry.condition);
-      const icon = visual.icon
-        ? `<ha-icon
-            class="hour-icon"
-            icon="${visual.icon}"
-            title="${esc(tr(language, entry.condition))}"
-            style="color:${visual.color}"
-          ></ha-icon>`
-        : "";
 
       return `
         <div
@@ -1157,14 +1182,16 @@ export class WeatherCentralCard extends HTMLElement {
           style="background:${this._tint(visual.tint)}"
         >
           <div class="hour-time">${esc(time)}</div>
-          ${icon}
           <div class="hour-main">${esc(probability)}</div>
           <div class="hour-sub">${esc(amount)}</div>
         </div>
       `;
     }).join("");
 
-    return `<div class="forecast-head"><div class="section-title" style="margin:0"><ha-icon icon="mdi:weather-rainy"></ha-icon>${esc(tr(language, "view_precipitation"))}</div><div class="forecast-sub">${esc(tr(language, "next_12_hours"))}</div></div>`
+    const headerVisual =
+      precipitationHeaderVisual(values);
+
+    return `<div class="forecast-head"><div class="section-title" style="margin:0"><ha-icon icon="${headerVisual.icon}" style="color:${headerVisual.color}"></ha-icon>${esc(tr(language, "view_precipitation"))}</div><div class="forecast-sub">${esc(tr(language, "next_12_hours"))}</div></div>`
       + `<div class="hours">${cells}</div>`
       + this._seriesMeta(series, language);
   }
