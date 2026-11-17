@@ -163,3 +163,28 @@ test("subscription payload matches Home Assistant weather API", async () => {
 
   manager.disconnect();
 });
+
+test("forecast normalization preserves precipitation condition such as snow", () => {
+  const hass = {
+    states: {
+      "weather.test": weather(),
+    },
+  };
+
+  const entry = normalizeForecastEntry(
+    hass,
+    "weather.test",
+    {
+      datetime: now,
+      condition: "snowy",
+      precipitation: 0.1,
+      precipitation_probability: 60,
+    }
+  );
+
+  assert.ok(entry);
+  assert.equal(entry.condition, "snowy");
+  assert.equal(entry.precipitation, 0.1);
+  assert.equal(entry.precipitation_probability, 60);
+});
+
