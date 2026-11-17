@@ -237,3 +237,94 @@ test("comparison prefers Weather Comparison v2 sensor metadata when available", 
   assert.equal(met.values.wind_speed, 2.7);
 });
 
+test("frost risk matches original elevated-risk dew-point threshold", () => {
+  const frost = deriveFrostRisk({
+    forecast: [
+      {
+        datetime: now,
+        temperature: 1.0,
+        dew_point: 1.0,
+        precipitation: 0,
+      },
+    ],
+  });
+
+  assert.equal(frost.available, true);
+  assert.equal(frost.level, 2);
+  assert.equal(frost.minSpread, 0);
+  assert.equal(frost.first.reason, "cold_humid");
+});
+
+test("explicit frost max_risk never gets downgraded by card derivation", () => {
+  const hass = {
+    states: {
+      "binary_sensor.frost_halka_relevant": state("on", {
+        max_risk: 2,
+      }),
+    },
+  };
+
+  const risks = getRiskData(
+    hass,
+    {},
+    {
+      forecast: [
+        {
+          datetime: now,
+          temperature: 2.5,
+          dew_point: 2.0,
+          precipitation: 0,
+        },
+      ],
+      source: "SMHI Local",
+      freshness: { status: "fresh" },
+    }
+  );
+
+  assert.equal(risks.frost.level, 2);
+  assert.equal(risks.frost.active, true);
+});
+
+test("fire risk becomes active at moderate index and exposes 12h legacy timeline", () => {
+  const states = {
+    "binary_sensor.brandrisk_relevant": state("on", {
+      max_index_12h: 15,
+    }),
+    "sensor.pirateweather_fire_index": state(8),
+  };
+
+  for (let i = 1; i <= 12; i += 1) {
+    states[`sensor.pirateweather_fire_index_${i}h`] =
+      state(i === 5 ? 15 : 7);
+  }
+
+  const risks = getRiskData(
+    { states },
+    {},
+    { forecast: [] }
+  );
+
+  assert.equal(risks.fire.active, true);
+  assert.equal(risks.fire.index, 15);
+  assert.equal(risks.fire.current, 8);
+  assert.equal(risks.fire.timeline.length, 12);
+  assert.equal(risks.fire.peak.hour, 5);
+});
+
+test("one percent thunder risk is not treated as active", () => {
+  const hass = {
+    states: {
+      "sensor.smhi_local_askrisk_nu": state(1),
+    },
+  };
+
+  const risks = getRiskData(
+    hass,
+    {},
+    { forecast: [] }
+  );
+
+  assert.equal(risks.thunder.available, true);
+  assert.equal(risks.thunder.active, false);
+});
+
