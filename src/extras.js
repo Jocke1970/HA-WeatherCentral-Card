@@ -248,88 +248,260 @@ export function getSkyData(hass, config) {
   };
 }
 
-export function deriveFrostRisk(
-  hourlyForecast
-) {
-  const entries =
-    hourlyForecast?.forecast || [];
+function optionalNumber(hass, entityId) {
+  const value = readNumber(hass, entityId);
+  return Number.isFinite(value) ? value : null;
+}
 
-  let maxLevel = 0;
-  let first = null;
-  let minTemp = null;
+function legacyFrostEntries(hass) {
+  const entries = [];
 
-  entries.slice(0, 12).forEach(
-    (entry, index) => {
-      const temp = Number(entry.temperature);
-      if (!Number.isFinite(temp)) return;
+  for (let hour = 1; hour <= 12; hour += 1) {
+    const tempId =
+      `sensor.pirateweather_temperature_${hour}h`;
 
-      minTemp =
-        minTemp === null
-          ? temp
-          : Math.min(minTemp, temp);
-
-      const precip =
-        Number.isFinite(entry.precipitation)
-          ? entry.precipitation
-          : 0;
-
-      const humidity =
-        Number.isFinite(entry.humidity)
-          ? entry.humidity
-          : null;
-
-      const dew =
-        Number.isFinite(entry.dew_point)
-          ? entry.dew_point
-          : null;
-
-      const spread =
-        dew === null ? null : temp - dew;
-
-      let level = 0;
-      let reason = "";
-
-      if (temp <= 0.5 && precip > 0) {
-        level = 3;
-        reason = "precip_freezing";
-      } else if (temp <= 0) {
-        level = 2;
-        reason = "below_zero";
-      } else if (
-        temp <= 2 &&
-        (
-          (humidity !== null && humidity >= 90) ||
-          (spread !== null && spread <= 1.5)
-        )
-      ) {
-        level = 1;
-        reason = "cold_humid";
-      }
-
-      if (level > maxLevel) {
-        maxLevel = level;
-      }
-
-      if (!first && level > 0) {
-        first = {
-          index,
-          datetime: entry.datetime,
-          level,
-          reason,
-        };
-      }
+    if (!hass?.states?.[tempId]) {
+      continue;
     }
-  );
+
+    const temp = optionalNumber(hass, tempId);
+    const dew = optionalNumber(
+      hass,
+      `sensor.pirateweather_dew_point_${hour}h`
+    );
+    const precip = optionalNumber(
+      hass,
+      `sensor.pirateweather_precip_intensity_${hour}h`
+    ) ?? 0;
+    const ice = optionalNumber(
+      hass,
+      `sensor.pirateweather_ice_accumulation_${hour}h`
+    ) ?? 0;
+
+    const precipType = String(
+      hass?.states?.[
+        `sensor.pirateweather_precip_${hour}h`
+      ]?.state || ""
+    ).toLowerCase();
+
+    const datetime =
+      new Date(Date.now() + hour * 3600000)
+        .toISOString();
+
+    entries.push({
+      datetime,
+      temp,
+      dew,
+      precip,
+      ice,
+      precipType,
+      source: "Pirate Weather",
+      sourceKind: "legacy_hourly",
+    });
+  }
+
+  return entries;
+}
+
+function genericFrostEntries(hourlyForecast) {
+  return (hourlyForecast?.forecast || [])
+    .slice(0, 12)
+    .map((entry) => ({
+      datetime: entry.datetime,
+      temp: Number.isFinite(entry.temperature)
+        ? entry.temperature
+        : null,
+      dew: Number.isFinite(entry.dew_point)
+        ? entry.dew_point
+        : null,
+      precip: Number.isFinite(entry.precipitation)
+        ? entry.precipitation
+        : 0,
+      ice: 0,
+      precipType: String(entry.condition || "")
+        .toLowerCase(),
+      source: hourlyForecast?.source || "",
+      sourceKind: "weather_forecast",
+    }));
+}
+
+function frostRiskForEntry(entry) {
+  const temp = entry.temp;
+
+  if (!Number.isFinite(temp)) {
+    return {
+      ...entry,
+      spread: null,
+      risk: 0,
+      reason: "",
+    };
+  }
+
+  const spread =
+    Number.isFinite(entry.dew)
+      ? temp - entry.dew
+      : null;
+
+  const wetType = [
+    "rain",
+    "rainy",
+    "pouring",
+    "sleet",
+    "snow",
+    "snowy",
+    "snowy-rainy",
+  ].includes(entry.precipType);
+
+  let risk = 0;
+  let reason = "";
+
+  if (entry.ice > 0) {
+    risk = 3;
+    reason = "ice_forecast";
+  } else if (
+    temp <= 0.5 &&
+    (entry.precip > 0 || wetType)
+  ) {
+    risk = 3;
+    reason = "precip_freezing";
+  } else if (temp <= 0) {
+    risk = 2;
+    reason = "below_zero";
+  } else if (
+    temp <= 1.5 &&
+    (
+      entry.precip > 0 ||
+      (spread !== null && spread <= 1.5)
+    )
+  ) {
+    risk = 2;
+    reason = "cold_humid";
+  } else if (
+    temp <= 3 &&
+    spread !== null &&
+    spread <= 1
+  ) {
+    risk = 1;
+    reason = "near_dewpoint";
+  }
 
   return {
-    available: entries
-      .slice(0, 12)
-      .some((entry) =>
-        Number.isFinite(Number(entry.temperature))
-      ),
+    ...entry,
+    spread,
+    risk,
+    reason,
+  };
+}
+
+export function deriveFrostRisk(
+  hourlyForecast,
+  hass = null
+) {
+  const legacy =
+    hass ? legacyFrostEntries(hass) : [];
+
+  const sourceEntries =
+    legacy.length >= 6
+      ? legacy
+      : genericFrostEntries(hourlyForecast);
+
+  const timeline =
+    sourceEntries.map(frostRiskForEntry);
+
+  const available = timeline.some(
+    (entry) => Number.isFinite(entry.temp)
+  );
+
+  const levels =
+    timeline.map((entry) => entry.risk);
+  const maxLevel =
+    levels.length ? Math.max(...levels) : 0;
+
+  const first =
+    timeline.find((entry) => entry.risk > 0) || null;
+
+  const finite = (key) =>
+    timeline
+      .map((entry) => entry[key])
+      .filter(Number.isFinite);
+
+  const temps = finite("temp");
+  const spreads = finite("spread");
+  const rain = finite("precip");
+  const ice = finite("ice");
+
+  return {
+    available,
     level: maxLevel,
     first,
-    minTemp,
+    minTemp:
+      temps.length ? Math.min(...temps) : null,
+    minSpread:
+      spreads.length ? Math.min(...spreads) : null,
+    maxRain:
+      rain.length ? Math.max(...rain) : null,
+    maxIce:
+      ice.length ? Math.max(...ice) : null,
+    timeline,
+    forecastSource:
+      timeline[0]?.source ||
+      hourlyForecast?.source ||
+      "",
+    forecastSourceKind:
+      timeline[0]?.sourceKind || null,
+  };
+}
+
+function legacyFireForecast(hass) {
+  const current =
+    optionalNumber(
+      hass,
+      "sensor.pirateweather_fire_index"
+    );
+
+  const timeline = [];
+
+  for (let hour = 1; hour <= 12; hour += 1) {
+    const value = optionalNumber(
+      hass,
+      `sensor.pirateweather_fire_index_${hour}h`
+    );
+
+    if (!Number.isFinite(value)) {
+      continue;
+    }
+
+    timeline.push({
+      hour,
+      value,
+      datetime:
+        new Date(Date.now() + hour * 3600000)
+          .toISOString(),
+    });
+  }
+
+  const candidates = [
+    ...(Number.isFinite(current)
+      ? [{ hour: 0, value: current, datetime: new Date().toISOString() }]
+      : []),
+    ...timeline,
+  ];
+
+  const peak =
+    candidates.length
+      ? candidates.reduce(
+          (best, item) =>
+            item.value > best.value
+              ? item
+              : best,
+          candidates[0]
+        )
+      : null;
+
+  return {
+    current,
+    timeline,
+    peak,
   };
 }
 
@@ -354,7 +526,9 @@ export function getRiskData(
     "thunder_risk_entity"
   );
 
-  const frost = deriveFrostRisk(hourlyForecast);
+  const frost =
+    deriveFrostRisk(hourlyForecast, hass);
+
   const frostState =
     frostEntity
       ? hass.states[frostEntity]
@@ -362,7 +536,22 @@ export function getRiskData(
   const frostEntityAvailable =
     validState(frostState);
 
-  if (!frost.available && frostEntityAvailable) {
+  const explicitFrostLevel =
+    Number(frostState?.attributes?.max_risk);
+
+  if (Number.isFinite(explicitFrostLevel)) {
+    frost.available = true;
+    frost.level = Math.max(
+      frost.level,
+      Math.max(
+        0,
+        Math.min(3, explicitFrostLevel)
+      )
+    );
+  } else if (
+    !frost.available &&
+    frostEntityAvailable
+  ) {
     frost.available = true;
     frost.level =
       frostState.state === "on" ? 1 : 0;
@@ -380,12 +569,22 @@ export function getRiskData(
       ? hass.states[fireEntity]
       : null;
 
+  const fireLegacy =
+    legacyFireForecast(hass);
+
+  const attrFireIndex =
+    Number(fireState?.attributes?.max_index_12h);
+
   const fireIndex =
-    fireState &&
-    Number.isFinite(
-      Number(fireState.attributes?.max_index_12h)
-    )
-      ? Number(fireState.attributes.max_index_12h)
+    Number.isFinite(fireLegacy.peak?.value)
+      ? fireLegacy.peak.value
+      : Number.isFinite(attrFireIndex)
+        ? attrFireIndex
+        : readNumber(hass, fireEntity);
+
+  const fireCurrent =
+    Number.isFinite(fireLegacy.current)
+      ? fireLegacy.current
       : readNumber(hass, fireEntity);
 
   const fireAvailable =
@@ -398,7 +597,7 @@ export function getRiskData(
       fireState?.state === "on" ||
       (
         Number.isFinite(fireIndex) &&
-        fireIndex >= 10
+        fireIndex >= 5
       )
     );
 
@@ -436,23 +635,22 @@ export function getRiskData(
     frost: {
       ...frost,
       entityId: frostEntity,
+      active: frost.available && frost.level > 0,
       source:
-        frost.available &&
-        hourlyForecast?.forecast?.length
-          ? hourlyForecast.source || ""
-          : frostEntityAvailable
+        frost.forecastSource ||
+        (
+          frostEntityAvailable
             ? extraSourceLabel(
                 hass,
                 config,
                 "frost_risk_entity"
               )
-            : "",
+            : ""
+        ),
       freshness:
-        frost.available &&
-        hourlyForecast?.forecast?.length
-          ? hourlyForecast.freshness || {
-              status: "unknown",
-            }
+        frost.forecastSource &&
+        hourlyForecast?.freshness
+          ? hourlyForecast.freshness
           : frostEntityAvailable
             ? entityFreshness(
                 hass,
@@ -470,13 +668,23 @@ export function getRiskData(
         Number.isFinite(fireIndex)
           ? fireIndex
           : null,
+      current:
+        Number.isFinite(fireCurrent)
+          ? fireCurrent
+          : null,
+      timeline: fireLegacy.timeline,
+      peak: fireLegacy.peak,
       source: fireEntity
         ? extraSourceLabel(
             hass,
             config,
             "fire_risk_entity"
           )
-        : "",
+        : (
+            fireLegacy.timeline.length
+              ? "Pirate Weather"
+              : ""
+          ),
       freshness: fireEntity
         ? entityFreshness(
             hass,
@@ -495,7 +703,7 @@ export function getRiskData(
           : null,
       active:
         Number.isFinite(thunderValue)
-          ? thunderValue > 0
+          ? thunderValue >= 20
           : forecastThunder,
       source: thunderEntity
         ? extraSourceLabel(
