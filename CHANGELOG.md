@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026.11.0b9
+
+Risk forecast rebuild.
+
+- Restored the original frost/ice risk thresholds, including elevated risk when temperature is close to dew point.
+- Explicit `max_risk` from the configured frost-risk binary sensor can never be downgraded by the card.
+- Frost/ice 12-hour timeline and diagnostics are shown only when frost/ice risk is active.
+- Frost diagnostics include lowest temperature, minimum dew-point margin, maximum precipitation and ice forecast.
+- Existing Pirate Weather 1-hour sensors are auto-detected as the richer frost timeline source when available; otherwise the selected weather provider's hourly forecast is used.
+- Fire risk now uses Low / Moderate / High / Very high / Extreme instead of a binary Relevant label.
+- Fire risk becomes active from the Moderate band (index 5+) or when the configured binary sensor is on.
+- Fire 12-hour timeline and current/max/peak diagnostics are shown only when fire risk is active.
+- Existing Pirate Weather fire-index hourly sensors are auto-detected for the fire timeline.
+- Thunder risk no longer treats any value above zero as active; 1% stays not relevant.
+- Compact three-tile Risks overview remains visible at all times.
+
 ## 2026.11.0b8
 
 Wind & air layout polish.
