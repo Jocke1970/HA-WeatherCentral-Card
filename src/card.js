@@ -1,7 +1,7 @@
 import { PARAM_META, PARAMS, formatValue, windDirection } from "./core.js";
 import { languageFor, tr } from "./i18n.js";
 import { WeatherValueResolver } from "./resolver.js";
-import { ForecastSeriesManager } from "./forecast.js";
+import { ForecastSeriesManager, forecastHasPrecipitation } from "./forecast.js";
 import {
   getSkyData,
   getRiskData,
@@ -10,7 +10,7 @@ import {
   getComparisonData,
 } from "./extras.js";
 
-const VERSION = "2026.11.0b11";
+const VERSION = "2026.11.0b12";
 
 const ICONS = {
   "clear-night": "mdi:weather-night",
@@ -86,10 +86,10 @@ const CSS = `
   .forecast-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
   .forecast-sub{font-size:11px;color:var(--secondary-text-color)}
   .hours{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
-  .hour{padding:8px 3px;border-radius:10px;background:var(--secondary-background-color);text-align:center;min-width:0}
+  .hour{padding:9px 3px 8px;border-radius:10px;background:var(--secondary-background-color);text-align:center;min-width:0;min-height:78px;box-sizing:border-box}
   .hour-time{font-size:10px;color:var(--secondary-text-color)}
-  .hour-icon{display:block;--mdc-icon-size:17px;margin:4px auto 0;color:var(--primary-color)}
-  .hour-main{font-size:15px;font-weight:650;margin-top:4px;white-space:nowrap}
+  .hour-icon{display:block;--mdc-icon-size:19px;margin:4px auto 1px;color:var(--primary-color)}
+  .hour-main{font-size:15px;font-weight:650;margin-top:2px;white-space:nowrap}
   .hour-sub{font-size:9.5px;color:var(--secondary-text-color);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .forecast-days{display:flex;flex-wrap:wrap;justify-content:center;gap:7px}
   .day{flex:0 1 calc(25% - 6px);box-sizing:border-box;padding:10px 5px;border-radius:12px;background:var(--secondary-background-color);text-align:center;min-width:0}
@@ -163,39 +163,6 @@ function freshnessClass(reading) {
 
 function iconForCondition(condition) {
   return ICONS[condition] || "mdi:weather-partly-cloudy";
-}
-
-function precipitationHeaderVisual(entries) {
-  const candidates = (entries || [])
-    .map((entry, index) => ({
-      entry,
-      index,
-      visual: precipitationVisual(entry.condition),
-      probability: Number.isFinite(
-        entry.precipitation_probability
-      )
-        ? entry.precipitation_probability
-        : 0,
-      amount: Number.isFinite(entry.precipitation)
-        ? entry.precipitation
-        : 0,
-    }))
-    .filter((item) => item.visual.icon)
-    .sort((a, b) => {
-      if (b.probability !== a.probability) {
-        return b.probability - a.probability;
-      }
-      if (b.amount !== a.amount) {
-        return b.amount - a.amount;
-      }
-      return a.index - b.index;
-    });
-
-  return candidates[0]?.visual || {
-    icon: "mdi:weather-rainy",
-    color: "var(--primary-color)",
-    tint: "rgba(120,144,156,0.03)",
-  };
 }
 
 function precipitationVisual(condition) {
@@ -1160,6 +1127,10 @@ export class WeatherCentralCard extends HTMLElement {
     const values = series?.forecast || [];
     if (!values.length) return `<div class="empty">${esc(tr(language, "no_data"))}</div>`;
 
+    if (!forecastHasPrecipitation(values)) {
+      return "__hide__";
+    }
+
     const cells = values.map((entry) => {
       const d = new Date(entry.datetime);
       const time = d.toLocaleTimeString(
@@ -1175,6 +1146,14 @@ export class WeatherCentralCard extends HTMLElement {
         ? `${formatValue(entry.precipitation, 1)} mm`
         : "–";
       const visual = precipitationVisual(entry.condition);
+      const icon = visual.icon
+        ? `<ha-icon
+            class="hour-icon"
+            icon="${visual.icon}"
+            title="${esc(tr(language, entry.condition))}"
+            style="color:${visual.color}"
+          ></ha-icon>`
+        : `<div style="height:24px"></div>`;
 
       return `
         <div
@@ -1182,16 +1161,14 @@ export class WeatherCentralCard extends HTMLElement {
           style="background:${this._tint(visual.tint)}"
         >
           <div class="hour-time">${esc(time)}</div>
+          ${icon}
           <div class="hour-main">${esc(probability)}</div>
           <div class="hour-sub">${esc(amount)}</div>
         </div>
       `;
     }).join("");
 
-    const headerVisual =
-      precipitationHeaderVisual(values);
-
-    return `<div class="forecast-head"><div class="section-title" style="margin:0"><ha-icon icon="${headerVisual.icon}" style="color:${headerVisual.color}"></ha-icon>${esc(tr(language, "view_precipitation"))}</div><div class="forecast-sub">${esc(tr(language, "next_12_hours"))}</div></div>`
+    return `<div class="forecast-head"><div class="section-title" style="margin:0">${esc(tr(language, "view_precipitation"))}</div><div class="forecast-sub">${esc(tr(language, "next_12_hours"))}</div></div>`
       + `<div class="hours">${cells}</div>`
       + this._seriesMeta(series, language);
   }
@@ -2198,6 +2175,14 @@ export class WeatherCentralCard extends HTMLElement {
     else if (view === "comparison") body = this._comparison(language);
     else if (view === "diagnostics") body = this._diagnostics(language);
     else body = this._overview(language);
+
+    if (body === "__hide__") {
+      this.style.display = "none";
+      this.shadowRoot.innerHTML = "";
+      return;
+    }
+
+    this.style.removeProperty("display");
 
     let cardStyle = "";
     if (
