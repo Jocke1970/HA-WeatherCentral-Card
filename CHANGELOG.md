@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026.11.0b12
+
+Precipitation card visibility and icon layout.
+
+- Removed the precipitation icon from the card header; the title is now text-only.
+- Added precipitation-type icons inside hourly cells for rain, pouring rain, snow, sleet, hail and thunderstorms.
+- Hourly cells are slightly taller to accommodate the icon without crowding the probability and amount values.
+- The entire 12-hour precipitation card is hidden when a valid forecast contains neither a precipitation condition nor precipitation amount above 0 mm.
+- Small non-zero probability values with 0.0 mm and no precipitation condition do not keep the card visible.
+- Missing/unavailable forecast data is not treated as dry weather; the card remains visible with the no-data state.
+- Added regression tests for dry-forecast hiding and precipitation detection.
+
 ## 2026.11.0b11
 
 Precipitation header icon refinement.
