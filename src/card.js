@@ -1,7 +1,7 @@
 import { PARAM_META, PARAMS, formatValue, windDirection } from "./core.js";
 import { languageFor, tr } from "./i18n.js";
 import { WeatherValueResolver } from "./resolver.js";
-import { ForecastSeriesManager } from "./forecast.js";
+import { ForecastSeriesManager, forecastHasPrecipitation } from "./forecast.js";
 import {
   getSkyData,
   getRiskData,
@@ -1127,6 +1127,10 @@ export class WeatherCentralCard extends HTMLElement {
     const values = series?.forecast || [];
     if (!values.length) return `<div class="empty">${esc(tr(language, "no_data"))}</div>`;
 
+    if (!forecastHasPrecipitation(values)) {
+      return "__hide__";
+    }
+
     const cells = values.map((entry) => {
       const d = new Date(entry.datetime);
       const time = d.toLocaleTimeString(
@@ -2171,6 +2175,14 @@ export class WeatherCentralCard extends HTMLElement {
     else if (view === "comparison") body = this._comparison(language);
     else if (view === "diagnostics") body = this._diagnostics(language);
     else body = this._overview(language);
+
+    if (body === "__hide__") {
+      this.style.display = "none";
+      this.shadowRoot.innerHTML = "";
+      return;
+    }
+
+    this.style.removeProperty("display");
 
     let cardStyle = "";
     if (
