@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026.11.0b11
+
+Precipitation header icon refinement.
+
+- Removed per-hour precipitation weather icons from the 12-hour precipitation grid.
+- The top-left precipitation header icon now reflects the most relevant precipitation condition in the next 12 hours.
+- Snow, sleet, hail, thunder, pouring rain and rain can therefore be indicated directly in the card header.
+- Hour cells remain clean and continue to show time, probability and precipitation amount.
+
 ## 2026.11.0b10
 
 Overview-grid and precipitation-type polish.
