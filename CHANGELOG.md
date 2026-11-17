@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026.11.0b10
+
+Overview-grid and precipitation-type polish.
+
+- Overview detail metrics now use four columns on desktop/laptop.
+- Mobile layout switches the same four metrics to a 2×2 grid.
+- Precipitation 12 h now renders forecast condition icons for rain, pouring rain, snow, sleet, hail and thunderstorms.
+- Precipitation cells receive a subtle condition-driven tint when dynamic backgrounds are enabled.
+- Precipitation amount remains the provider's precipitation amount in mm; snow icons do not reinterpret water equivalent as snow depth.
+- Added regression coverage for preserving precipitation condition through forecast normalization.
+
 ## 2026.11.0b9
 
 Risk forecast rebuild.
