@@ -10,7 +10,7 @@ import {
   getComparisonData,
 } from "./extras.js";
 
-const VERSION = "2026.11.0b8";
+const VERSION = "2026.11.0b9";
 
 const ICONS = {
   "clear-night": "mdi:weather-night",
@@ -110,6 +110,22 @@ const CSS = `
   .risk-icon{--mdc-icon-size:25px;margin-bottom:7px}
   .risk-name{font-size:11px;color:var(--secondary-text-color)}
   .risk-state{font-size:17px;font-weight:650;margin-top:4px}
+  .risk-detail{margin-top:10px;padding:12px;border-radius:13px;background:var(--secondary-background-color)}
+  .risk-detail-head{display:grid;grid-template-columns:44px minmax(0,1fr);gap:10px;align-items:center}
+  .risk-detail-head ha-icon{--mdc-icon-size:38px}
+  .risk-detail-title{font-size:19px;font-weight:700;line-height:1.15}
+  .risk-detail-text{font-size:11px;color:var(--secondary-text-color);line-height:1.35;margin-top:3px}
+  .risk-timeline{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px;margin-top:10px}
+  .risk-hour{padding:7px 2px;border-radius:9px;text-align:center;min-width:0}
+  .risk-hour-time{font-size:9.5px;color:var(--secondary-text-color)}
+  .risk-hour-value{font-size:13px;font-weight:650;margin-top:2px}
+  .risk-hour-dot{width:6px;height:6px;margin:3px auto 0;border-radius:50%}
+  .risk-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:8px}
+  .risk-metric{padding:9px 3px;border-radius:11px;background:var(--ha-card-background,var(--card-background-color));text-align:center;min-width:0}
+  .risk-metric ha-icon{--mdc-icon-size:19px;margin-bottom:3px}
+  .risk-metric-label{font-size:9.5px;color:var(--secondary-text-color)}
+  .risk-metric-value{font-size:13px;font-weight:650;margin-top:2px;white-space:nowrap}
+  .risk-foot{margin-top:9px;padding-top:9px;border-top:1px solid var(--divider-color);font-size:10px;line-height:1.35;text-align:center;color:var(--secondary-text-color)}
   .alert-list{display:grid;gap:8px}
   .alert-item{display:grid;grid-template-columns:34px minmax(0,1fr);gap:9px;padding:11px;border-radius:12px;background:var(--secondary-background-color);border-left:5px solid var(--divider-color)}
   .alert-item ha-icon{--mdc-icon-size:25px;margin-top:2px}
@@ -128,7 +144,7 @@ const CSS = `
   .consensus-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
   .consensus-chip{padding:7px 9px;border-radius:10px;background:var(--secondary-background-color);font-size:11px}
   .pressure-main .big{font-size:34px}
-  @media(max-width:420px){ha-card{padding:13px}.big{font-size:34px}.hero-icon{--mdc-icon-size:58px}.overview-hero{grid-template-columns:64px minmax(0,1fr) auto;gap:9px}.overview-big{font-size:28px}.day{flex-basis:calc(50% - 5px)}.risk-grid{grid-template-columns:1fr}.pollutants{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(max-width:420px){ha-card{padding:13px}.big{font-size:34px}.hero-icon{--mdc-icon-size:58px}.overview-hero{grid-template-columns:64px minmax(0,1fr) auto;gap:9px}.overview-big{font-size:28px}.day{flex-basis:calc(50% - 5px)}.risk-grid{grid-template-columns:1fr}.risk-timeline{grid-template-columns:repeat(4,minmax(0,1fr))}.risk-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.pollutants{grid-template-columns:repeat(2,minmax(0,1fr))}}
 `;
 
 function esc(value) {
@@ -1348,6 +1364,313 @@ export class WeatherCentralCard extends HTMLElement {
     `;
   }
 
+  _riskMetric(icon, label, value, color) {
+    return `
+      <div class="risk-metric">
+        <ha-icon icon="${icon}" style="color:${color}"></ha-icon>
+        <div class="risk-metric-label">${esc(label)}</div>
+        <div class="risk-metric-value">${esc(value)}</div>
+      </div>
+    `;
+  }
+
+  _frostDetail(data, language) {
+    if (!data?.active || !data.timeline?.length) {
+      return "";
+    }
+
+    const info = [
+      {
+        title: tr(language, "risk_none"),
+        text: tr(language, "frost_none_text"),
+        color: "#43a047",
+        tint: "rgba(67,160,71,0.10)",
+        icon: "mdi:shield-check-outline",
+      },
+      {
+        title: tr(language, "risk_low"),
+        text: tr(language, "frost_low_text"),
+        color: "#039be5",
+        tint: "rgba(3,155,229,0.10)",
+        icon: "mdi:snowflake-thermometer",
+      },
+      {
+        title: tr(language, "risk_elevated"),
+        text: tr(language, "frost_elevated_text"),
+        color: "#fb8c00",
+        tint: "rgba(251,140,0,0.11)",
+        icon: "mdi:snowflake-alert",
+      },
+      {
+        title: tr(language, "risk_high"),
+        text: tr(language, "frost_high_text"),
+        color: "#e53935",
+        tint: "rgba(229,57,53,0.11)",
+        icon: "mdi:car-brake-alert",
+      },
+    ][Math.max(0, Math.min(3, data.level))];
+
+    const riskVisual = (level) => [
+      ["#43a047", "rgba(67,160,71,0.07)"],
+      ["#039be5", "rgba(3,155,229,0.09)"],
+      ["#fb8c00", "rgba(251,140,0,0.11)"],
+      ["#e53935", "rgba(229,57,53,0.12)"],
+    ][Math.max(0, Math.min(3, level || 0))];
+
+    const locale = language === "sv" ? "sv-SE" : "en-GB";
+    const firstTime = data.first?.datetime
+      ? new Date(data.first.datetime).toLocaleTimeString(
+          locale,
+          { hour: "2-digit", minute: "2-digit" }
+        )
+      : null;
+
+    const reasonMap = {
+      ice_forecast: tr(language, "frost_reason_ice"),
+      precip_freezing: tr(language, "frost_reason_precip"),
+      below_zero: tr(language, "frost_reason_below_zero"),
+      cold_humid: tr(language, "frost_reason_cold_humid"),
+      near_dewpoint: tr(language, "frost_reason_dewpoint"),
+    };
+
+    const timeline = data.timeline
+      .slice(0, 12)
+      .map((entry) => {
+        const [color, tint] = riskVisual(entry.risk);
+        const hour = new Date(entry.datetime)
+          .toLocaleTimeString(locale, { hour: "2-digit" });
+        const temp = Number.isFinite(entry.temp)
+          ? `${Math.round(entry.temp)}°`
+          : "–";
+
+        return `
+          <div class="risk-hour" style="background:${this._tint(tint)}">
+            <div class="risk-hour-time">${esc(hour)}</div>
+            <div class="risk-hour-value" style="color:${color}">${esc(temp)}</div>
+            <div class="risk-hour-dot" style="background:${color}"></div>
+          </div>
+        `;
+      })
+      .join("");
+
+    const spreadColor =
+      !Number.isFinite(data.minSpread)
+        ? "#78909c"
+        : data.minSpread <= 0.5
+          ? "#fb8c00"
+          : data.minSpread <= 1.5
+            ? "#00acc1"
+            : "#039be5";
+
+    const rainUnit =
+      data.forecastSourceKind === "legacy_hourly"
+        ? "mm/h"
+        : "mm";
+
+    return `
+      <div class="risk-detail" style="background:${this._tint(info.tint)}">
+        <div class="risk-detail-head">
+          <ha-icon icon="${info.icon}" style="color:${info.color}"></ha-icon>
+          <div>
+            <div class="risk-detail-title" style="color:${info.color}">
+              ${esc(info.title)}
+            </div>
+            <div class="risk-detail-text">
+              ${esc(info.text)}
+              ${firstTime
+                ? `<br>${esc(tr(language, "first_signal"))} <b>${esc(firstTime)}</b>${data.first?.reason ? ` · ${esc(reasonMap[data.first.reason] || data.first.reason)}` : ""}`
+                : ""}
+            </div>
+          </div>
+        </div>
+
+        <div class="risk-timeline">${timeline}</div>
+
+        <div class="risk-metrics">
+          ${this._riskMetric(
+            "mdi:thermometer-low",
+            tr(language, "lowest"),
+            Number.isFinite(data.minTemp)
+              ? `${formatValue(data.minTemp, 1)} °C`
+              : "–",
+            "#039be5"
+          )}
+          ${this._riskMetric(
+            "mdi:water-thermometer-outline",
+            tr(language, "dew_margin"),
+            Number.isFinite(data.minSpread)
+              ? `${formatValue(data.minSpread, 1)} °C`
+              : "–",
+            spreadColor
+          )}
+          ${this._riskMetric(
+            "mdi:weather-rainy",
+            tr(language, "max_rain"),
+            Number.isFinite(data.maxRain)
+              ? `${formatValue(data.maxRain, 1)} ${rainUnit}`
+              : "–",
+            "#039be5"
+          )}
+          ${this._riskMetric(
+            "mdi:snowflake-alert",
+            tr(language, "ice_forecast"),
+            Number.isFinite(data.maxIce)
+              ? `${formatValue(data.maxIce, 2)} cm`
+              : "–",
+            data.maxIce > 0 ? "#e53935" : "#43a047"
+          )}
+        </div>
+
+        <div class="risk-foot">
+          ${esc(tr(language, "frost_disclaimer"))}
+        </div>
+        ${this._extraMeta(data, language)}
+      </div>
+    `;
+  }
+
+  _fireInfo(value, language) {
+    if (!Number.isFinite(value)) {
+      return {
+        level: tr(language, "missing"),
+        text: tr(language, "fire_missing_text"),
+        color: "#78909c",
+        tint: "rgba(120,144,156,0.09)",
+        timelineTint: "rgba(120,144,156,0.07)",
+      };
+    }
+    if (value >= 30) {
+      return {
+        level: tr(language, "fire_extreme"),
+        text: tr(language, "fire_extreme_text"),
+        color: "#c62828",
+        tint: "rgba(198,40,40,0.13)",
+        timelineTint: "rgba(198,40,40,0.15)",
+      };
+    }
+    if (value >= 20) {
+      return {
+        level: tr(language, "fire_very_high"),
+        text: tr(language, "fire_very_high_text"),
+        color: "#e53935",
+        tint: "rgba(229,57,53,0.12)",
+        timelineTint: "rgba(229,57,53,0.13)",
+      };
+    }
+    if (value >= 10) {
+      return {
+        level: tr(language, "fire_high"),
+        text: tr(language, "fire_high_text"),
+        color: "#fb8c00",
+        tint: "rgba(251,140,0,0.12)",
+        timelineTint: "rgba(251,140,0,0.12)",
+      };
+    }
+    if (value >= 5) {
+      return {
+        level: tr(language, "fire_moderate"),
+        text: tr(language, "fire_moderate_text"),
+        color: "#f9a825",
+        tint: "rgba(249,168,37,0.11)",
+        timelineTint: "rgba(249,168,37,0.10)",
+      };
+    }
+    return {
+      level: tr(language, "fire_low"),
+      text: tr(language, "fire_low_text"),
+      color: "#43a047",
+      tint: "rgba(67,160,71,0.10)",
+      timelineTint: "rgba(67,160,71,0.07)",
+    };
+  }
+
+  _fireDetail(data, language) {
+    if (!data?.active) return "";
+
+    const info = this._fireInfo(data.index, language);
+    const currentInfo = this._fireInfo(data.current, language);
+    const locale = language === "sv" ? "sv-SE" : "en-GB";
+
+    const timeline = (data.timeline || [])
+      .slice(0, 12)
+      .map((entry) => {
+        const cell = this._fireInfo(entry.value, language);
+        const hour = new Date(entry.datetime)
+          .toLocaleTimeString(locale, { hour: "2-digit" });
+
+        return `
+          <div class="risk-hour" style="background:${this._tint(cell.timelineTint)}">
+            <div class="risk-hour-time">${esc(hour)}</div>
+            <div class="risk-hour-value" style="color:${cell.color}">
+              ${Number.isFinite(entry.value) ? Math.round(entry.value) : "–"}
+            </div>
+            <div class="risk-hour-dot" style="background:${cell.color}"></div>
+          </div>
+        `;
+      })
+      .join("");
+
+    const peakTime =
+      data.peak?.hour === 0
+        ? tr(language, "now")
+        : data.peak?.datetime
+          ? new Date(data.peak.datetime).toLocaleTimeString(
+              locale,
+              { hour: "2-digit", minute: "2-digit" }
+            )
+          : "–";
+
+    return `
+      <div class="risk-detail" style="background:${this._tint(info.tint)}">
+        <div class="risk-detail-head">
+          <ha-icon icon="mdi:fire-alert" style="color:${info.color}"></ha-icon>
+          <div>
+            <div class="risk-detail-title" style="color:${info.color}">
+              ${esc(info.level)}
+            </div>
+            <div class="risk-detail-text">
+              ${esc(info.text)}
+            </div>
+          </div>
+        </div>
+
+        ${timeline
+          ? `<div class="risk-timeline">${timeline}</div>`
+          : ""}
+
+        <div class="risk-metrics" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+          ${this._riskMetric(
+            "mdi:fire",
+            tr(language, "now"),
+            Number.isFinite(data.current)
+              ? formatValue(data.current, 1)
+              : "–",
+            currentInfo.color
+          )}
+          ${this._riskMetric(
+            "mdi:fire-alert",
+            tr(language, "max_12h"),
+            Number.isFinite(data.index)
+              ? formatValue(data.index, 1)
+              : "–",
+            info.color
+          )}
+          ${this._riskMetric(
+            "mdi:clock-outline",
+            tr(language, "peak"),
+            peakTime,
+            info.color
+          )}
+        </div>
+
+        <div class="risk-foot">
+          ${esc(tr(language, "fire_disclaimer"))}
+        </div>
+        ${this._extraMeta(data, language)}
+      </div>
+    `;
+  }
+
   _risks(language) {
     const hourly = this._hourlySeries();
     const data = getRiskData(
@@ -1373,17 +1696,22 @@ export class WeatherCentralCard extends HTMLElement {
       ? tr(language, "missing")
       : tr(language, frostInfo[1]);
 
+    const fireInfo =
+      this._fireInfo(data.fire.index, language);
+
     const fireText = !fireKnown
       ? tr(language, "missing")
-      : data.fire.active
-        ? tr(language, "risk_relevant")
-        : tr(language, "risk_not_relevant");
+      : fireInfo.level;
 
     const thunderText = !thunderKnown
       ? tr(language, "missing")
-      : data.thunder.active
-        ? tr(language, "risk_relevant")
-        : tr(language, "risk_not_relevant");
+      : !data.thunder.active
+        ? tr(language, "risk_not_relevant")
+        : data.thunder.value >= 70
+          ? tr(language, "risk_high")
+          : data.thunder.value >= 40
+            ? tr(language, "risk_elevated")
+            : tr(language, "risk_low");
 
     return `
       <div class="section-title">
@@ -1415,6 +1743,9 @@ export class WeatherCentralCard extends HTMLElement {
           ${this._extraMeta(data.fire, language)}
         </div>
       </div>
+
+      ${this._frostDetail(data.frost, language)}
+      ${this._fireDetail(data.fire, language)}
     `;
   }
 
