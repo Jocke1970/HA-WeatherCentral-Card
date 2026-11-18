@@ -167,67 +167,6 @@ function iconForCondition(condition) {
   return ICONS[condition] || "mdi:weather-partly-cloudy";
 }
 
-function precipitationVisual(condition) {
-  const key = String(condition || "").toLowerCase();
-
-  if (key === "snowy") {
-    return {
-      icon: "mdi:weather-snowy",
-      color: "#0288d1",
-      tint: "rgba(3,169,244,0.10)",
-    };
-  }
-
-  if (key === "snowy-rainy") {
-    return {
-      icon: "mdi:weather-snowy-rainy",
-      color: "#039be5",
-      tint: "rgba(0,172,193,0.10)",
-    };
-  }
-
-  if (key === "hail") {
-    return {
-      icon: "mdi:weather-hail",
-      color: "#0277bd",
-      tint: "rgba(2,119,189,0.11)",
-    };
-  }
-
-  if (key === "lightning-rainy" || key === "lightning") {
-    return {
-      icon: key === "lightning-rainy"
-        ? "mdi:weather-lightning-rainy"
-        : "mdi:weather-lightning",
-      color: "#7e57c2",
-      tint: "rgba(126,87,194,0.10)",
-    };
-  }
-
-  if (key === "pouring") {
-    return {
-      icon: "mdi:weather-pouring",
-      color: "#1565c0",
-      tint: "rgba(21,101,192,0.11)",
-    };
-  }
-
-  if (key === "rainy") {
-    return {
-      icon: "mdi:weather-rainy",
-      color: "#0288d1",
-      tint: "rgba(2,136,209,0.09)",
-    };
-  }
-
-  return {
-    icon: null,
-    color: "var(--secondary-text-color)",
-    tint: "rgba(120,144,156,0.03)",
-  };
-}
-
-
 function tintBackground(tint, base = "var(--secondary-background-color)") {
   return `linear-gradient(${tint}, ${tint}), ${base}`;
 }
