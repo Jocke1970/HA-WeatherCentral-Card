@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026.11.0b13
+
+12-hour forecast redesign.
+
+- Replaced the precipitation-only 12-hour view with a general 12-hour weather forecast while keeping the internal `view: precipitation` identifier for backward compatibility.
+- Renamed the visual-editor option and card title to `12h-prognos` / `12-hour forecast`.
+- Each hourly tile now shows time, weather condition icon, temperature and precipitation probability.
+- Precipitation amount is shown only when the provider forecasts more than 0 mm.
+- Hourly tiles use subtle condition-driven tints for sun, clouds, fog, rain, snow, sleet, hail, thunder and wind.
+- The 12-hour forecast is always visible; the b12 dry-weather auto-hide behavior has been removed.
+- Mobile layout uses three hourly tiles per row.
+- Removed obsolete precipitation-only rendering and dry-forecast helper/tests.
+
 ## 2026.11.0b12
 
 Precipitation card visibility and icon layout.
