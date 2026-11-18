@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026.11.0b14
+
+Hourly precipitation-type metadata.
+
+- Added support for provider-specific hourly `precipitation_category` and `precipitation_frozen_part` forecast metadata.
+- SMHI Local precipitation categories are rendered separately from the main weather condition, so a cloudy hour can still show snow/rain/sleet as the precipitation type.
+- Added localized labels and stable Home Assistant icons for snow, sleet, rain, drizzle, freezing rain/drizzle and showers.
+- Main weather icon remains the provider's weather condition; precipitation type is a separate compact line.
+- Providers without the extra metadata continue to render exactly as before.
+- Added regression coverage for preserving custom precipitation metadata through forecast normalization.
+
 ## 2026.11.0b13
 
 12-hour forecast redesign.
