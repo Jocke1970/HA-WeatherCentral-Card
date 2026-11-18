@@ -1085,7 +1085,7 @@ export class WeatherCentralCard extends HTMLElement {
       },
       4: {
         key: "precip_type_drizzle",
-        icon: "mdi:weather-partly-rainy",
+        icon: "mdi:weather-rainy",
         color: "#039be5",
       },
       5: {
@@ -1100,7 +1100,7 @@ export class WeatherCentralCard extends HTMLElement {
       },
       7: {
         key: "precip_type_snow_showers",
-        icon: "mdi:weather-snowy-heavy",
+        icon: "mdi:weather-snowy",
         color: "#0277bd",
       },
       8: {
@@ -1120,7 +1120,7 @@ export class WeatherCentralCard extends HTMLElement {
       },
       11: {
         key: "precip_type_heavy_snow_showers",
-        icon: "mdi:weather-snowy-heavy",
+        icon: "mdi:weather-snowy",
         color: "#1565c0",
       },
     };
@@ -2018,7 +2018,7 @@ export class WeatherCentralCard extends HTMLElement {
     const eventIcons = {
       THUNDER: "mdi:weather-lightning",
       WIND: "mdi:weather-windy",
-      SNOW: "mdi:weather-snowy-heavy",
+      SNOW: "mdi:weather-snowy",
       BLACK_ICE: "mdi:car-brake-alert",
       RAIN: "mdi:weather-pouring",
       FIRE: "mdi:fire-alert",
