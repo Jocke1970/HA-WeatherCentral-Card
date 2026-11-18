@@ -161,6 +161,10 @@ export function normalizeForecastEntry(
     precipitation,
     precipitation_probability:
       numeric("precipitation_probability"),
+    precipitation_category:
+      numeric("precipitation_category"),
+    precipitation_frozen_part:
+      numeric("precipitation_frozen_part"),
     humidity: numeric("humidity"),
     cloud_coverage: numeric("cloud_coverage"),
     pressure,
