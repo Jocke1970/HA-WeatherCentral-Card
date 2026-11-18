@@ -51,29 +51,6 @@ function forecastFreshness(hass, entityId, provider, receivedAt) {
   return { status: "stale", ageMinutes, timestamp };
 }
 
-const PRECIPITATION_CONDITIONS = new Set([
-  "rainy",
-  "pouring",
-  "snowy",
-  "snowy-rainy",
-  "hail",
-  "lightning-rainy",
-]);
-
-export function forecastHasPrecipitation(entries) {
-  return (entries || []).some((entry) => {
-    const amount = Number(entry?.precipitation);
-    const condition = String(
-      entry?.condition || ""
-    ).toLowerCase();
-
-    return (
-      (Number.isFinite(amount) && amount > 0) ||
-      PRECIPITATION_CONDITIONS.has(condition)
-    );
-  });
-}
-
 export function normalizeForecastEntry(
   hass,
   weatherEntity,
