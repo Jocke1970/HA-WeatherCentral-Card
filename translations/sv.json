@@ -166,5 +166,16 @@
   "now": "Nu",
   "max_12h": "Max 12 h",
   "peak": "Topp",
-  "fire_disclaimer": "Fosberg Fire Weather Index · meteorologiskt brandväder · tar inte hänsyn till vegetationens eller markens torrhet"
+  "fire_disclaimer": "Fosberg Fire Weather Index · meteorologiskt brandväder · tar inte hänsyn till vegetationens eller markens torrhet",
+  "precip_type_snow": "Snö",
+  "precip_type_sleet": "Snöblandat",
+  "precip_type_rain": "Regn",
+  "precip_type_drizzle": "Duggregn",
+  "precip_type_freezing_rain": "Underkylt regn",
+  "precip_type_freezing_drizzle": "Underkylt dugg",
+  "precip_type_snow_showers": "Snöbyar",
+  "precip_type_rain_showers": "Regnskurar",
+  "precip_type_heavy_rain_showers": "Kraftiga skurar",
+  "precip_type_sleet_showers": "Snöbl. skurar",
+  "precip_type_heavy_snow_showers": "Kraftiga snöbyar"
 }
