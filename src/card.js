@@ -10,7 +10,7 @@ import {
   getComparisonData,
 } from "./extras.js";
 
-const VERSION = "2026.11.0b13";
+const VERSION = "2026.11.0b14";
 
 const ICONS = {
   "clear-night": "mdi:weather-night",
@@ -93,6 +93,8 @@ const CSS = `
   .hour-precip{display:flex;align-items:center;justify-content:center;gap:3px;font-size:9.5px;color:var(--secondary-text-color);margin-top:5px;white-space:nowrap}
   .hour-precip ha-icon{--mdc-icon-size:12px;color:#039be5}
   .hour-amount{font-size:9px;color:var(--secondary-text-color);margin-top:2px;white-space:nowrap}
+  .hour-type{display:flex;align-items:center;justify-content:center;gap:3px;font-size:9px;font-weight:600;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hour-type ha-icon{--mdc-icon-size:13px;flex:none}
   .forecast-days{display:flex;flex-wrap:wrap;justify-content:center;gap:7px}
   .day{flex:0 1 calc(25% - 6px);box-sizing:border-box;padding:10px 5px;border-radius:12px;background:var(--secondary-background-color);text-align:center;min-width:0}
   .day ha-icon{--mdc-icon-size:29px;color:var(--primary-color);margin:7px 0 3px}
@@ -1063,6 +1065,75 @@ export class WeatherCentralCard extends HTMLElement {
       + this._seriesMeta(series, language);
   }
 
+  _precipitationTypeVisual(category, language) {
+    const code = Number(category);
+    const map = {
+      1: {
+        key: "precip_type_snow",
+        icon: "mdi:weather-snowy",
+        color: "#0288d1",
+      },
+      2: {
+        key: "precip_type_sleet",
+        icon: "mdi:weather-snowy-rainy",
+        color: "#039be5",
+      },
+      3: {
+        key: "precip_type_rain",
+        icon: "mdi:weather-rainy",
+        color: "#0288d1",
+      },
+      4: {
+        key: "precip_type_drizzle",
+        icon: "mdi:weather-rainy",
+        color: "#039be5",
+      },
+      5: {
+        key: "precip_type_freezing_rain",
+        icon: "mdi:snowflake-alert",
+        color: "#5e35b1",
+      },
+      6: {
+        key: "precip_type_freezing_drizzle",
+        icon: "mdi:snowflake-alert",
+        color: "#7e57c2",
+      },
+      7: {
+        key: "precip_type_snow_showers",
+        icon: "mdi:weather-snowy",
+        color: "#0277bd",
+      },
+      8: {
+        key: "precip_type_rain_showers",
+        icon: "mdi:weather-rainy",
+        color: "#0288d1",
+      },
+      9: {
+        key: "precip_type_heavy_rain_showers",
+        icon: "mdi:weather-pouring",
+        color: "#1565c0",
+      },
+      10: {
+        key: "precip_type_sleet_showers",
+        icon: "mdi:weather-snowy-rainy",
+        color: "#039be5",
+      },
+      11: {
+        key: "precip_type_heavy_snow_showers",
+        icon: "mdi:weather-snowy",
+        color: "#1565c0",
+      },
+    };
+
+    const item = map[code];
+    if (!item) return null;
+
+    return {
+      ...item,
+      label: tr(language, item.key),
+    };
+  }
+
   _hourForecastVisual(condition) {
     const key = String(condition || "").toLowerCase();
 
@@ -1190,6 +1261,25 @@ export class WeatherCentralCard extends HTMLElement {
           `
           : "";
 
+      const precipType =
+        this._precipitationTypeVisual(
+          entry.precipitation_category,
+          language
+        );
+
+      const typeLine = precipType
+        ? `
+          <div
+            class="hour-type"
+            style="color:${precipType.color}"
+            title="${esc(precipType.label)}"
+          >
+            <ha-icon icon="${precipType.icon}"></ha-icon>
+            <span>${esc(precipType.label)}</span>
+          </div>
+        `
+        : "";
+
       return `
         <div
           class="hour"
@@ -1209,6 +1299,7 @@ export class WeatherCentralCard extends HTMLElement {
           <div class="hour-temp">${esc(temperature)}</div>
           ${precipLine}
           ${amountLine}
+          ${typeLine}
         </div>
       `;
     }).join("");
@@ -1927,7 +2018,7 @@ export class WeatherCentralCard extends HTMLElement {
     const eventIcons = {
       THUNDER: "mdi:weather-lightning",
       WIND: "mdi:weather-windy",
-      SNOW: "mdi:weather-snowy-heavy",
+      SNOW: "mdi:weather-snowy",
       BLACK_ICE: "mdi:car-brake-alert",
       RAIN: "mdi:weather-pouring",
       FIRE: "mdi:fire-alert",

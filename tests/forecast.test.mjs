@@ -188,4 +188,29 @@ test("forecast normalization preserves precipitation condition such as snow", ()
   assert.equal(entry.precipitation_probability, 60);
 });
 
+test("forecast normalization preserves SMHI precipitation metadata", () => {
+  const hass = {
+    states: {
+      "weather.test": weather(),
+    },
+  };
+
+  const entry = normalizeForecastEntry(
+    hass,
+    "weather.test",
+    {
+      datetime: now,
+      condition: "cloudy",
+      temperature: 1,
+      precipitation: 0.1,
+      precipitation_probability: 30,
+      precipitation_category: 1,
+      precipitation_frozen_part: 100,
+    }
+  );
+
+  assert.ok(entry);
+  assert.equal(entry.precipitation_category, 1);
+  assert.equal(entry.precipitation_frozen_part, 100);
+});
 
