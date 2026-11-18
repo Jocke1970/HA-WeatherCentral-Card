@@ -166,5 +166,16 @@
   "now": "Now",
   "max_12h": "Max 12 h",
   "peak": "Peak",
-  "fire_disclaimer": "Fosberg Fire Weather Index · meteorological fire weather · does not include vegetation or soil dryness"
+  "fire_disclaimer": "Fosberg Fire Weather Index · meteorological fire weather · does not include vegetation or soil dryness",
+  "precip_type_snow": "Snow",
+  "precip_type_sleet": "Sleet",
+  "precip_type_rain": "Rain",
+  "precip_type_drizzle": "Drizzle",
+  "precip_type_freezing_rain": "Freezing rain",
+  "precip_type_freezing_drizzle": "Freezing drizzle",
+  "precip_type_snow_showers": "Snow showers",
+  "precip_type_rain_showers": "Rain showers",
+  "precip_type_heavy_rain_showers": "Heavy showers",
+  "precip_type_sleet_showers": "Sleet showers",
+  "precip_type_heavy_snow_showers": "Heavy snow showers"
 }
