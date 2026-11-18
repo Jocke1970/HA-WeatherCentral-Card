@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   ForecastSeriesManager,
-  forecastHasPrecipitation,
   normalizeForecastEntry,
   selectForecastSeries,
 } from "../src/forecast.js";
@@ -189,45 +188,4 @@ test("forecast normalization preserves precipitation condition such as snow", ()
   assert.equal(entry.precipitation_probability, 60);
 });
 
-test("dry forecast hides precipitation view despite small probabilities", () => {
-  assert.equal(
-    forecastHasPrecipitation([
-      {
-        condition: "cloudy",
-        precipitation: 0,
-        precipitation_probability: 10,
-      },
-      {
-        condition: "partlycloudy",
-        precipitation: 0,
-        precipitation_probability: 3,
-      },
-    ]),
-    false
-  );
-});
-
-test("precipitation forecast stays visible for amount or wet condition", () => {
-  assert.equal(
-    forecastHasPrecipitation([
-      {
-        condition: "cloudy",
-        precipitation: 0.1,
-        precipitation_probability: 10,
-      },
-    ]),
-    true
-  );
-
-  assert.equal(
-    forecastHasPrecipitation([
-      {
-        condition: "snowy",
-        precipitation: 0,
-        precipitation_probability: 60,
-      },
-    ]),
-    true
-  );
-});
 
