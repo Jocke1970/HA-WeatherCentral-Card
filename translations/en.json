@@ -177,5 +177,10 @@
   "precip_type_rain_showers": "Rain showers",
   "precip_type_heavy_rain_showers": "Heavy showers",
   "precip_type_sleet_showers": "Sleet showers",
-  "precip_type_heavy_snow_showers": "Heavy snow showers"
+  "precip_type_heavy_snow_showers": "Heavy snow showers",
+  "alerts_popup_title": "SMHI – current warnings",
+  "open_full_alert": "Open full warning",
+  "from": "From",
+  "to": "To",
+  "until_further_notice": "Until further notice"
 }
