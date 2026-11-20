@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026.11.0b15
+
+Clickable SMHI warning details.
+
+- Active SMHI warning cards are now clickable.
+- Clicking a warning opens the full wide Browser Mod popup with all current SMHI warning/message details.
+- Popup content restores the original Weather Central detail structure: title, severity/area, From/To, and every description section such as What happens, Incident description, What should I think about, Comments and Where.
+- Popup content is generated from the live configured SMHI alerts entity; no warning text is duplicated or hard-coded.
+- Keyboard activation with Enter/Space is supported.
+- If Browser Mod popup is unavailable, the card falls back to Home Assistant More info for the configured alerts entity.
+- Added subtle hover/focus feedback so clickable warnings are visually discoverable.
+
 ## 2026.11.0b14
 
 Hourly precipitation-type metadata.
