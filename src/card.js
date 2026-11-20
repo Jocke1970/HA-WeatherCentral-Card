@@ -10,7 +10,7 @@ import {
   getComparisonData,
 } from "./extras.js";
 
-const VERSION = "2026.11.0b14";
+const VERSION = "2026.11.0b15";
 
 const ICONS = {
   "clear-night": "mdi:weather-night",
@@ -133,6 +133,10 @@ const CSS = `
   .risk-foot{margin-top:9px;padding-top:9px;border-top:1px solid var(--divider-color);font-size:10px;line-height:1.35;text-align:center;color:var(--secondary-text-color)}
   .alert-list{display:grid;gap:8px}
   .alert-item{display:grid;grid-template-columns:34px minmax(0,1fr);gap:9px;padding:11px;border-radius:12px;background:var(--secondary-background-color);border-left:5px solid var(--divider-color)}
+  .alert-item[data-alert-popup]{cursor:pointer;transition:filter .12s ease,transform .12s ease}
+  .alert-item[data-alert-popup]:hover{filter:brightness(.98)}
+  .alert-item[data-alert-popup]:active{transform:scale(.995)}
+  .alert-item[data-alert-popup]:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}
   .alert-item ha-icon{--mdc-icon-size:25px;margin-top:2px}
   .alert-title{font-size:13px;font-weight:650;line-height:1.25}
   .alert-sub{font-size:10px;color:var(--secondary-text-color);line-height:1.35;margin-top:4px}
@@ -319,6 +323,16 @@ export class WeatherCentralCard extends HTMLElement {
     this._scheduled = false;
 
     this.shadowRoot.addEventListener("click", (event) => {
+      const alertTarget =
+        event.target.closest?.("[data-alert-popup]");
+
+      if (alertTarget) {
+        event.preventDefault();
+        event.stopPropagation();
+        this._openAlertsPopup();
+        return;
+      }
+
       const target = event.target.closest?.("[data-more-info]");
       const entityId = target?.dataset?.moreInfo;
       if (!entityId) return;
@@ -330,6 +344,18 @@ export class WeatherCentralCard extends HTMLElement {
           composed: true,
         })
       );
+    });
+
+    this.shadowRoot.addEventListener("keydown", (event) => {
+      if (!["Enter", " "].includes(event.key)) return;
+
+      const alertTarget =
+        event.target.closest?.("[data-alert-popup]");
+
+      if (!alertTarget) return;
+
+      event.preventDefault();
+      this._openAlertsPopup();
     });
   }
 
@@ -1989,6 +2015,193 @@ export class WeatherCentralCard extends HTMLElement {
     `;
   }
 
+  _alertPopupDate(value, language) {
+    const timestamp = Date.parse(value || "");
+    if (!Number.isFinite(timestamp)) return "";
+
+    const date = new Date(timestamp);
+    const monthsSv = [
+      "Jan", "Feb", "Mar", "Apr", "Maj", "Jun",
+      "Jul", "Aug", "Sep", "Okt", "Nov", "Dec",
+    ];
+    const monthsEn = [
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+    const months =
+      language === "sv" ? monthsSv : monthsEn;
+
+    const local = new Date(
+      date.toLocaleString("en-US", {
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      })
+    );
+
+    const day = local.getDate();
+    const month = months[local.getMonth()];
+    const hour =
+      String(local.getHours()).padStart(2, "0");
+    const minute =
+      String(local.getMinutes()).padStart(2, "0");
+
+    return `${day} ${month} ${hour}:${minute}`;
+  }
+
+  _alertPopupMarkdown(data, language) {
+    const items = data?.messages || [];
+
+    if (!items.length) {
+      return language === "sv"
+        ? "## ✅ Inga aktiva varningar\n\nSMHI har inga aktiva vädervarningar eller informationsmeddelanden för området."
+        : "## ✅ No active warnings\n\nSMHI has no active weather warnings or information messages for the area.";
+    }
+
+    const lines = [];
+
+    items.forEach((item, index) => {
+      const title =
+        language === "sv"
+          ? (
+              item.event_description_sv ||
+              item.descr ||
+              item.event_sv ||
+              item.event ||
+              tr(language, "smhi_message")
+            )
+          : (
+              item.event_description_en ||
+              item.event_en ||
+              item.descr ||
+              item.event ||
+              tr(language, "smhi_message")
+            );
+
+      const level =
+        item.level ||
+        item.severity ||
+        item.code ||
+        "";
+      const area =
+        language === "sv"
+          ? (
+              item.area_name_sv ||
+              item.area_name ||
+              item.area ||
+              ""
+            )
+          : (
+              item.area_name_en ||
+              item.area_name ||
+              item.area ||
+              ""
+            );
+
+      lines.push(`## ${title}`);
+      if (level || area) {
+        lines.push(
+          `**${[level, area].filter(Boolean).join(" · ")}**`
+        );
+      }
+
+      const start =
+        item.start_local ||
+        item.start ||
+        item.start_raw;
+      if (start) {
+        lines.push(
+          `**${tr(language, "from")}:** ${this._alertPopupDate(start, language)}`
+        );
+      }
+
+      if (item.end_is_open_ended) {
+        lines.push(
+          `**${tr(language, "to")}:** ${tr(language, "until_further_notice")}`
+        );
+      } else {
+        const end =
+          item.end_local ||
+          item.end ||
+          item.end_raw;
+        if (end) {
+          lines.push(
+            `**${tr(language, "to")}:** ${this._alertPopupDate(end, language)}`
+          );
+        }
+      }
+
+      const parts =
+        Array.isArray(item.description_items)
+          ? item.description_items
+          : [];
+
+      for (const part of parts) {
+        const partTitle =
+          language === "sv"
+            ? (part.title_sv || part.title || "")
+            : (part.title_en || part.title || "");
+        const partText =
+          language === "sv"
+            ? (part.text_sv || part.text || "")
+            : (part.text_en || part.text || "");
+
+        if (partTitle) {
+          lines.push(`### ${partTitle}`);
+        }
+        if (partText) {
+          lines.push(String(partText));
+        }
+      }
+
+      if (index < items.length - 1) {
+        lines.push("---");
+      }
+    });
+
+    return lines.join("\n\n");
+  }
+
+  _openAlertsPopup() {
+    const data = getAlertsData(
+      this._hass,
+      this._config
+    );
+    const language = languageFor(this._hass);
+    const markdown =
+      this._alertPopupMarkdown(data, language);
+
+    const browserModPopup =
+      this._hass?.services?.browser_mod?.popup;
+
+    if (
+      browserModPopup &&
+      typeof this._hass?.callService === "function"
+    ) {
+      this._hass.callService(
+        "browser_mod",
+        "popup",
+        {
+          title: tr(language, "alerts_popup_title"),
+          size: "wide",
+          content: {
+            type: "markdown",
+            content: markdown,
+          },
+        }
+      );
+      return;
+    }
+
+    if (data.alertsEntity) {
+      this.dispatchEvent(
+        new CustomEvent("hass-more-info", {
+          detail: { entityId: data.alertsEntity },
+          bubbles: true,
+          composed: true,
+        })
+      );
+    }
+  }
+
   _alerts(language) {
     const data = getAlertsData(
       this._hass,
@@ -2056,7 +2269,14 @@ export class WeatherCentralCard extends HTMLElement {
           "";
 
         return `
-          <div class="alert-item" style="border-left-color:${severity[0]}">
+          <div
+            class="alert-item"
+            data-alert-popup
+            role="button"
+            tabindex="0"
+            aria-label="${esc(tr(language, "open_full_alert"))}"
+            style="border-left-color:${severity[0]}"
+          >
             <ha-icon icon="${icon}" style="color:${severity[0]}"></ha-icon>
             <div>
               <div class="alert-title">${esc(title)}</div>

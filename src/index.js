@@ -3,7 +3,7 @@ import { WeatherCentralCardEditor } from "./editor.js";
 
 const TAG = "weather-central-card";
 const EDITOR_TAG = "weather-central-card-editor";
-const VERSION = "2026.11.0b14";
+const VERSION = "2026.11.0b15";
 
 if (!customElements.get(EDITOR_TAG)) {
   customElements.define(
