@@ -177,5 +177,10 @@
   "precip_type_rain_showers": "Regnskurar",
   "precip_type_heavy_rain_showers": "Kraftiga skurar",
   "precip_type_sleet_showers": "Snöbl. skurar",
-  "precip_type_heavy_snow_showers": "Kraftiga snöbyar"
+  "precip_type_heavy_snow_showers": "Kraftiga snöbyar",
+  "alerts_popup_title": "SMHI – aktuella varningar",
+  "open_full_alert": "Öppna hela varningen",
+  "from": "Från",
+  "to": "Till",
+  "until_further_notice": "Tills vidare"
 }
